@@ -2082,6 +2082,10 @@ hr {
     margin-top: -90px;
     padding: 12px;
 }
+.hero-header-rounded~.header-categories1 {
+    margin-top: 5px;
+    padding: 12px;
+}
 
 .header-cat-box:hover .badge {
     -webkit-transition: .4s;
@@ -4952,4 +4956,8 @@ hr {
 .items-carousel.owl-nav-center.owl-theme .owl-nav [class*="owl-"] {
     color: var(--bs-primary);
     background-color: var(--bs-light);
+}
+
+.form-control.galleryimage{
+    height: 35px !important;
 }

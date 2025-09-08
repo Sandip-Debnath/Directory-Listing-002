@@ -118,15 +118,93 @@ export const updateUser = (payload) => {
 export const changePassword = (payload) =>
   post("/change-password", payload, { auth: true })
 
+
+export const getCountries = (params = {}) =>
+  get("/countries", { params }); // if auth is needed: { params, auth:true }
+
+export const getStates = (params = {}) =>
+  get("/states", { params });
+
+export const getStatesByCountry = (country_id) =>
+  get("/states-by-country", { params: { country_id } });
+
+export const getCities = (params = {}) =>
+  get("/city-by-states", { params });
+
+export const getCategories = async () => {
+  const r = await get("/categories");      // -> { success, data: [...] }
+  return r?.data ?? [];
+};
+
+export const getTags = async (page = 1, per_page = 25) => {
+  const r = await get("/tags", { params: { page, per_page } }); // -> { success, data: { data:[...] } }
+  return r?.data?.data ?? [];
+};
+
+
+// --- Create Listing (multipart, with arrays + files) ---
+export const createListing = async (payload = {}) => {
+  // Build FormData manually so arrays/files are appended correctly.
+  const fd = new FormData();
+
+  const appendIf = (k, v) => {
+    if (v === undefined || v === null) return;
+    if (typeof v === "string" && v.trim() === "") return;
+    fd.append(k, v);
+  };
+
+  // Basic / contact / location / socials
+  [
+    "listing_title", "slug", "description",
+    "address", "zipcode", "country_id", "state_id", "city_id",
+    "lat", "long",
+    "mobile", "email", "company_website",
+    "fb_link", "twitter_link", "insta_link", "linkedin_link",
+  ].forEach((k) => appendIf(k, payload[k]));
+
+  // Opening hours
+  const days = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
+  days.forEach((d) => {
+    appendIf(`${d}_open_time`, payload[`${d}_open_time`]);
+    appendIf(`${d}_close_time`, payload[`${d}_close_time`]);
+  });
+
+  // Arrays (repeat keys with [] for typical Laravel-style parsing)
+  if (Array.isArray(payload.category_ids)) {
+    payload.category_ids.forEach((id) => appendIf("category_ids[]", String(id)));
+  }
+  if (Array.isArray(payload.tag_ids)) {
+    payload.tag_ids.forEach((id) => appendIf("tag_ids[]", String(id)));
+  }
+
+  if (Array.isArray(payload.tag_names)) {
+    payload.tag_names.forEach((name) => appendIf("tag_names[]", name));
+  }
+
+  // Files (multiple)
+  if (Array.isArray(payload.images)) {
+    payload.images.forEach((file) => {
+      if (file instanceof Blob) fd.append("images[]", file);
+    });
+  }
+
+  // POST with auth + multipart
+  return http("/listing/create", {
+    method: "POST",
+    body: fd,
+    form: true,    // don't set Content-Type; browser will add boundary
+    auth: true,    // adds Bearer token
+  });
+};
+
+
+
 // ------- Listings (examples) -------
 export const getListings = (params = {}) =>
   get("/listings", { params, auth: true });
 
 export const getListing = (id) =>
   get(`/listings/${id}`, { auth: true });
-
-export const createListing = (payload) =>
-  post("/listings", payload, { auth: true });
 
 export const updateListing = (id, payload) =>
   put(`/listings/${id}`, payload, { auth: true });

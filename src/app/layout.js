@@ -6,6 +6,7 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import SiteChrome from '@/components/SiteChrome';
 import ReduxProvider from '@/providers/ReduxProvider';
+import GmapsLoader from '@/components/GmapsLoader';
 
 export const metadata = {
   title: 'BizDirectory',
@@ -20,7 +21,10 @@ export default function RootLayout({ children }) {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </head>
       <body>
-      <ReduxProvider><SiteChrome>{children}</SiteChrome></ReduxProvider>
+      <ReduxProvider><SiteChrome>{children}
+      
+      <GmapsLoader />
+      </SiteChrome></ReduxProvider>
 
         <Script src="/assets/plugins/jQuery/jquery.min.js" strategy="afterInteractive" />
         <Script src="/assets/plugins/bootstrap/js/bootstrap.bundle.min.js" strategy="afterInteractive" />

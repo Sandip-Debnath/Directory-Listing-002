@@ -1,19 +1,224 @@
 // src/app/dashboard/add-listing/page.js
 "use client";
 
-import { useState } from "react";
-import Image from 'next/image';
+import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
+import { getCountries, getStatesByCountry, getCities, getCategories, getTags, createListing } from "@/utils/api/handlers";
+import TagPicker from "@/components/TagPicker";
+import PlacesAutocomplete from "@/components/PlacesAutocomplete";
+
 
 export default function AddListingPage() {
     const [form, setForm] = useState({
-        category: "",
-        city: "",
-        meal:"",
+        // Basic
+        listing_title: "",
+        slug: "",
+        description: "",
+        // Location block
+        address: "",
+        zipcode: "",
+        country_id: "",
+        state_id: "",
+        city_id: "",
+        lat: "",
+        long: "",
+        // Contact
+        mobile: "",
+        email: "",
+        company_website: "",
+        // Socials
+        fb_link: "",
+        twitter_link: "",
+        insta_link: "",
+        linkedin_link: "",
+        // Opening hours
+        monday_open_time: "", monday_close_time: "",
+        tuesday_open_time: "", tuesday_close_time: "",
+        wednesday_open_time: "", wednesday_close_time: "",
+        thursday_open_time: "", thursday_close_time: "",
+        friday_open_time: "", friday_close_time: "",
+        saturday_open_time: "", saturday_close_time: "",
+        sunday_open_time: "", sunday_close_time: "",
+        // UI helpers
+        location_address: "",
+        // Category/Tags for API
+        category_id: "",
+        tags: [],            // [{id,name}] from TagPicker
     });
 
-    function updateField(name, value) {
-        setForm((f) => ({ ...f, [name]: value }));
+    const [countries, setCountries] = useState([]);
+    const [states, setStates] = useState([]);
+    const [cities, setCities] = useState([]);
+    const [categories, setCategories] = useState([]);
+    const [tagOptions, setTagOptions] = useState([]);
+    const [galleryFiles, setGalleryFiles] = useState([]); // File[]
+    const [galleryErr, setGalleryErr] = useState("");
+    const [loading, setLoading] = useState({ countries: false, states: false, cities: false });
+    const [submitting, setSubmitting] = useState(false);
+    const [submitErr, setSubmitErr] = useState("");
+    const [okMsg, setOkMsg] = useState("");
+
+    const updateField = (name, value) => setForm(f => ({ ...f, [name]: value }));
+    const onInput = (e) => updateField(e.target.name, e.target.value);
+
+    // Fetch selects
+    useEffect(() => {
+        (async () => {
+            try {
+                setLoading(s => ({ ...s, countries: true }));
+                const res = await getCountries();
+                setCountries(Array.isArray(res?.data) ? res.data : res);
+            } finally { setLoading(s => ({ ...s, countries: false })); }
+        })();
+    }, []);
+
+    async function onSelectCountry(id) {
+        updateField("country_id", id);
+        updateField("state_id", ""); updateField("city_id", "");
+        setStates([]); setCities([]);
+        if (!id) return;
+        try {
+            setLoading(s => ({ ...s, states: true }));
+            const res = await getStatesByCountry(id);
+            setStates(Array.isArray(res?.data) ? res.data : res);
+        } finally { setLoading(s => ({ ...s, states: false })); }
+    }
+
+    async function onSelectState(id) {
+        updateField("state_id", id);
+        updateField("city_id", "");
+        setCities([]);
+        if (!id) return;
+        try {
+            setLoading(s => ({ ...s, cities: true }));
+            const res = await getCities({ state_id: id });
+            setCities(Array.isArray(res?.data) ? res.data : res);
+        } finally { setLoading(s => ({ ...s, cities: false })); }
+    }
+
+    useEffect(() => {
+        (async () => {
+            const cats = await getCategories(); setCategories(cats);
+            const tags = await getTags(); setTagOptions(tags);
+        })();
+    }, []);
+
+    // Gallery (max 5)
+    const previews = useMemo(
+        () => galleryFiles.map(f => ({ file: f, url: URL.createObjectURL(f) })),
+        [galleryFiles]
+    );
+    useEffect(() => () => previews.forEach(p => URL.revokeObjectURL(p.url)), [previews]);
+
+    function onGalleryChange(e) {
+        const picked = Array.from(e.target.files || []);
+        if (!picked.length) return;
+        const room = Math.max(0, 5 - galleryFiles.length);
+        const next = [...galleryFiles, ...picked.slice(0, room)];
+        setGalleryFiles(next);
+        setGalleryErr(picked.length > room ? "You can upload up to 5 images total." : "");
+        e.target.value = "";
+    }
+    const removeGalleryIndex = (i) =>
+        setGalleryFiles(prev => prev.filter((_, idx) => idx !== i));
+
+    // Submit
+    async function onSubmit() {
+        setSubmitErr(""); setOkMsg("");
+        if (!form.listing_title.trim()) return setSubmitErr("Listing title is required");
+        try {
+            setSubmitting(true);
+
+            // 👉 split tags: existing (with id) vs custom (no id)
+            const tag_ids = (form.tags || [])
+                .filter(t => t.id)
+                .map(t => String(t.id));
+
+            const tag_names = (form.tags || [])
+                .filter(t => !t.id && t.name)
+                .map(t => t.name.trim())
+                .filter(Boolean);
+
+
+            const payload = {
+                // Basic
+                listing_title: form.listing_title,
+                slug: form.slug || undefined,
+                description: form.description || undefined,
+                // Location
+                address: form.address || undefined,
+                zipcode: form.zipcode || undefined,
+                country_id: form.country_id || undefined,
+                state_id: form.state_id || undefined,
+                city_id: form.city_id || undefined,
+                lat: form.lat || undefined,
+                long: form.long || undefined,
+                // Contact
+                mobile: form.mobile || undefined,
+                email: form.email || undefined,
+                company_website: form.company_website || undefined,
+                // Socials
+                fb_link: form.fb_link || undefined,
+                twitter_link: form.twitter_link || undefined,
+                insta_link: form.insta_link || undefined,
+                linkedin_link: form.linkedin_link || undefined,
+                // Opening hours
+                monday_open_time: form.monday_open_time || undefined,
+                monday_close_time: form.monday_close_time || undefined,
+                tuesday_open_time: form.tuesday_open_time || undefined,
+                tuesday_close_time: form.tuesday_close_time || undefined,
+                wednesday_open_time: form.wednesday_open_time || undefined,
+                wednesday_close_time: form.wednesday_close_time || undefined,
+                thursday_open_time: form.thursday_open_time || undefined,
+                thursday_close_time: form.thursday_close_time || undefined,
+                friday_open_time: form.friday_open_time || undefined,
+                friday_close_time: form.friday_close_time || undefined,
+                saturday_open_time: form.saturday_open_time || undefined,
+                saturday_close_time: form.saturday_close_time || undefined,
+                sunday_open_time: form.sunday_open_time || undefined,
+                sunday_close_time: form.sunday_close_time || undefined,
+                // Arrays
+                category_ids: form.category_id ? [String(form.category_id)] : [],
+                // tag_ids: (form.tags || []).filter(t => t.id).map(t => String(t.id)),
+                // Files
+                tag_ids,       // ← existing tags by id
+                tag_names,     // ← new/custom tags by name
+                images: galleryFiles,
+            };
+            await createListing(payload);
+            setOkMsg("Listing created successfully!");
+            // Optional: reset minimal fields
+            // setForm(f => ({ ...f, listing_title:"", slug:"", description:"", tags:[], category_id:"" }));
+            // setGalleryFiles([]);
+        } catch (err) {
+            setSubmitErr(err?.message || "Failed to create listing");
+        } finally {
+            setSubmitting(false);
+        }
+    }
+
+    // which days are closed
+    const [closedDays, setClosedDays] = useState({
+        monday: false,
+        tuesday: false,
+        wednesday: false,
+        thursday: false,
+        friday: false,
+        saturday: false,
+        sunday: false,
+    });
+
+    const toggleClosed = (day) => (e) => {
+        const v = e.target.checked;
+        setClosedDays((s) => ({ ...s, [day]: v }));
+        // clear times when closing so they won't be sent
+        if (v) {
+            updateField(`${day}_open_time`, "");
+            updateField(`${day}_close_time`, "");
+        }
     };
+
+
 
     return (
         <>
@@ -27,7 +232,10 @@ export default function AddListingPage() {
 
                             <div className="">
                                 <label className="required fw-medium mb-2">Listing Title</label>
-                                <input type="text" className="form-control" required="" />
+                                <input
+                                    type="text" name="listing_title" className="form-control"
+                                    value={form.listing_title} onChange={onInput} required
+                                />
                             </div>
 
                         </div>
@@ -37,14 +245,15 @@ export default function AddListingPage() {
                                 <label className="required fw-medium mb-2">Category</label>
                                 <select
                                     className="form-select"
-                                    value={form.category}
-                                    onChange={(e) => updateField("category", e.target.value)}
+                                    value={form.category_id}
+                                    onChange={(e) => updateField("category_id", e.target.value)}
                                 >
-                                    <option value="">Category</option>
-                                    <option value="1">Restaurant</option>
-                                    <option value="2">Event</option>
-                                    <option value="3">Adrenaline</option>
+                                    <option value="">Select Category</option>
+                                    {categories.map(c => (
+                                        <option key={c.id} value={c.id}>{c.name}</option>
+                                    ))}
                                 </select>
+
                             </div>
 
                         </div>
@@ -52,7 +261,13 @@ export default function AddListingPage() {
 
                             <div className="">
                                 <label className="required fw-medium mb-2">Tags</label>
-                                <input type="text" className="form-control" placeholder="+ Add tag" required="" />
+                                <TagPicker
+                                    options={tagOptions}
+                                    value={form.tags}
+                                    onChange={(vals) => updateField("tags", vals)}
+                                />
+                                <small className="text-muted">Press Enter to add a custom tag, or pick from suggestions.</small>
+
                             </div>
 
                         </div>
@@ -67,36 +282,67 @@ export default function AddListingPage() {
                 <div className="card-body">
                     <div className="row g-4">
                         <div className="col-sm-6">
-
-                            <div className="">
-                                <label className="required fw-medium mb-2">City</label>
-
-                                <select
-                                    className="form-select"
-                                    value={form.city}
-                                    onChange={(e) => updateField("city", e.target.value)}
-                                >
-                                    <option value="">Select City</option>
-                                    <option value="1">One</option>
-                                    <option value="2">Two</option>
-                                    <option value="3">Three</option>
-                                </select>
-                            </div>
-
+                            <label className="required fw-medium mb-2">Country</label>
+                            <select
+                                className="form-select"
+                                value={form.country_id}
+                                onChange={(e) => onSelectCountry(e.target.value)}
+                            >
+                                <option value="">{loading.countries ? "Loading countries…" : "Select Country"}</option>
+                                {countries.map((c) => (
+                                    <option key={c.id} value={c.id}>{c.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="col-sm-6">
+                            <label className="required fw-medium mb-2">State</label>
+                            <select
+                                className="form-select"
+                                value={form.state_id}
+                                onChange={(e) => onSelectState(e.target.value)}
+                                disabled={!form.country_id}
+                            >
+                                <option value="">
+                                    {!form.country_id
+                                        ? "Select country first"
+                                        : loading.states
+                                            ? "Loading states…"
+                                            : "Select State"}
+                                </option>
+                                {states.map((s) => (
+                                    <option key={s.id} value={s.id}>{s.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="col-sm-6">
+                            <label className="required fw-medium mb-2">City</label>
+                            <select
+                                className="form-select"
+                                value={form.city_id}
+                                onChange={(e) => updateField("city_id", e.target.value)}
+                                disabled={!form.state_id}
+                            >
+                                <option value="">
+                                    {!form.state_id
+                                        ? "Select state first"
+                                        : loading.cities
+                                            ? "Loading cities…"
+                                            : "Select City"}
+                                </option>
+                                {cities.map((c) => (
+                                    <option key={c.id} value={c.id}>{c.name}</option>
+                                ))}
+                            </select>
                         </div>
                         <div className="col-sm-6">
 
                             <div className="">
                                 <label className="required fw-medium mb-2">Address</label>
-                                <input type="email" className="form-control" placeholder="8706 Herrick Ave, Valley..." required="" />
-                            </div>
-
-                        </div>
-                        <div className="col-sm-6">
-
-                            <div className="">
-                                <label className="required fw-medium mb-2">State</label>
-                                <input type="number" className="form-control" placeholder="State" required="" />
+                                <input
+                                    type="text" name="address" className="form-control"
+                                    placeholder="8706 Herrick Ave, Valley..."
+                                    value={form.address} onChange={onInput} required
+                                />
                             </div>
 
                         </div>
@@ -104,8 +350,23 @@ export default function AddListingPage() {
 
                             <div className="">
                                 <label className="required fw-medium mb-2">Zip-Code</label>
-                                <input type="number" className="form-control" placeholder="3870" required="" />
+                                <input
+                                    type="text" name="zipcode" className="form-control"
+                                    placeholder="700001"
+                                    value={form.zipcode} onChange={onInput}
+                                />
                             </div>
+
+                        </div>
+                        <div className="col-sm-6">
+                            <label className="required fw-medium mb-2">Select Location</label>
+                            <PlacesAutocomplete
+                                value={form.location_address}
+                                onSelect={({ address, lat, lng }) => {
+                                    setForm(f => ({ ...f, location_address: address, lat: String(lat), long: String(lng) }));
+                                }}
+                            />
+                            <small className="text-muted d-block mt-1">Lat: {form.lat || "—"} | Lng: {form.long || "—"}</small>
 
                         </div>
                     </div>
@@ -117,15 +378,47 @@ export default function AddListingPage() {
                     <h6 className="fs-17 fw-semi-bold mb-0">Gallery</h6>
                 </div>
                 <div className="card-body">
-
                     <div className="">
-                        <label className="required fw-medium mb-2">Gallery</label>
-                        <input className="fileUp fileup-sm" type="file" name="files" accept=".jpg, .png, image/jpeg, image/png" multiple />
-                        <div className="form-text">Recommended to 350 x 350 px (png, jpg, jpeg).</div>
-                    </div>
+                        <div className="d-flex justify-content-between align-items-center mb-2">
+                            <label className="required fw-medium mb-2 mb-0">Gallery</label>
+                            <small className="text-muted">{galleryFiles.length}/5</small>
+                        </div>
 
+                        <input
+                            type="file"
+                            accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+                            multiple
+                            onChange={onGalleryChange}
+                            className="form-control galleryimage"
+                        />
+                        <div className="form-text">Max 5 images. Recommended 350×350 px (png, jpg, jpeg).</div>
+                        {galleryErr ? <div className="text-danger mt-2">{galleryErr}</div> : null}
+
+                        {/* Previews */}
+                        {previews.length > 0 && (
+                            <div className="row g-3 mt-2">
+                                {previews.map((p, i) => (
+                                    <div className="col-6 col-md-3" key={i}>
+                                        <div className="position-relative border rounded overflow-hidden">
+                                            {/* Use next/image if you prefer; plain img avoids layout constraints for blobs */}
+                                            <img src={p.url} alt={`upload-${i}`} className="img-fluid d-block w-100" />
+                                            <button
+                                                type="button"
+                                                className="btn btn-sm btn-danger position-absolute top-0 end-0 m-1"
+                                                onClick={() => removeGalleryIndex(i)}
+                                                aria-label="Remove image"
+                                            >
+                                                ×
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
+
 
             <div className="card mb-4">
                 <div className="card-header position-relative">
@@ -137,7 +430,9 @@ export default function AddListingPage() {
 
                             <div className="">
                                 <label className="required fw-medium mb-2">Description</label>
-                                <textarea className="form-control" rows="7" placeholder="Please enter up to 4000 characters."></textarea>
+                                <textarea className="form-control" name="description" rows="7"
+                                    placeholder="Please enter up to 4000 characters."
+                                    value={form.description} onChange={onInput} />
                             </div>
 
                         </div>
@@ -145,7 +440,8 @@ export default function AddListingPage() {
 
                             <div className="">
                                 <label className="required fw-medium mb-2">Phone</label>
-                                <input type="number" className="form-control" placeholder="(123) 456 - 789" required="" />
+                                <input type="text" name="mobile" className="form-control" placeholder="(123) 456 - 789"
+                                    value={form.mobile} onChange={onInput} />
                             </div>
 
                         </div>
@@ -153,7 +449,8 @@ export default function AddListingPage() {
 
                             <div className="">
                                 <label className="required fw-medium mb-2">Company website</label>
-                                <input type="text" className="form-control" placeholder="https://company.com" required="" />
+                                <input type="text" name="company_website" className="form-control" placeholder="https://company.com"
+                                    value={form.company_website} onChange={onInput} />
                             </div>
 
                         </div>
@@ -161,7 +458,8 @@ export default function AddListingPage() {
 
                             <div className="">
                                 <label className="required fw-medium mb-2">Email Address</label>
-                                <input type="email" className="form-control" placeholder="example@email.com" required="" />
+                                <input type="email" name="email" className="form-control" placeholder="example@email.com"
+                                    value={form.email} onChange={onInput} />
                             </div>
 
                         </div>
@@ -172,7 +470,8 @@ export default function AddListingPage() {
 
                             <div className="">
                                 <label className="fw-medium mb-2">Facebook Page<span className="fs-13 ms-1 text-muted">(optional)</span></label>
-                                <input type="text" className="form-control" placeholder="https://facebook.com/" />
+                                <input type="text" name="fb_link" className="form-control" placeholder="https://facebook.com/"
+                                    value={form.fb_link} onChange={onInput} />
                             </div>
 
                         </div>
@@ -180,7 +479,8 @@ export default function AddListingPage() {
 
                             <div className="">
                                 <label className="fw-medium mb-2">Twitter profile<span className="fs-13 ms-1 text-muted">(optional)</span></label>
-                                <input type="text" className="form-control" placeholder="https://twitter.com/" />
+                                <input type="text" name="twitter_link" className="form-control" placeholder="https://twitter.com/"
+                                    value={form.twitter_link} onChange={onInput} />
                             </div>
 
                         </div>
@@ -188,7 +488,8 @@ export default function AddListingPage() {
 
                             <div className="">
                                 <label className="fw-medium mb-2">Instagram profile<span className="fs-13 ms-1 text-muted">(optional)</span></label>
-                                <input type="text" className="form-control" placeholder="https://instagram.com/" />
+                                <input type="text" name="insta_link" className="form-control" placeholder="https://instagram.com/"
+                                    value={form.insta_link} onChange={onInput} />
                             </div>
 
                         </div>
@@ -196,107 +497,10 @@ export default function AddListingPage() {
 
                             <div className="">
                                 <label className="fw-medium mb-2">Linkedin page<span className="fs-13 ms-1 text-muted">(optional)</span></label>
-                                <input type="text" className="form-control" placeholder="https://linkedin.com/" />
+                                <input type="text" name="linkedin_link" className="form-control" placeholder="https://linkedin.com/"
+                                    value={form.linkedin_link} onChange={onInput} />
                             </div>
 
-                        </div>
-                        <div className="col-sm-12">
-                            <hr />
-                        </div>
-                        <div className="col-md-12">
-                            <div className="fw-medium text-dark mb-3">Property amenities<span className="fs-13 ms-1 text-muted">(optional)</span></div>
-                            <div className="row gx-3 gy-2">
-                                <div className="col-auto">
-
-                                    <div className="form-check">
-                                        <input className="form-check-input" type="checkbox" value="" id="flexCheckDefaultOne" />
-                                        <label className="form-check-label" htmlFor="flexCheckDefaultOne">
-                                            Garden
-                                        </label>
-                                    </div>
-
-                                </div>
-                                <div className="col-auto">
-
-                                    <div className="form-check">
-                                        <input className="form-check-input" type="checkbox" value="" id="flexCheckDefaultTwo" />
-                                        <label className="form-check-label" htmlFor="flexCheckDefaultTwo">
-                                            Security cameras
-                                        </label>
-                                    </div>
-
-                                </div>
-                                <div className="col-auto">
-
-                                    <div className="form-check">
-                                        <input className="form-check-input" type="checkbox" value="" id="flexCheckDefaultThree" />
-                                        <label className="form-check-label" htmlFor="flexCheckDefaultThree">
-                                            Laundry
-                                        </label>
-                                    </div>
-
-                                </div>
-                                <div className="col-auto">
-
-                                    <div className="form-check">
-                                        <input className="form-check-input" type="checkbox" value="" id="flexCheckDefaultFour" />
-                                        <label className="form-check-label" htmlFor="flexCheckDefaultFour">
-                                            Internet
-                                        </label>
-                                    </div>
-
-                                </div>
-                                <div className="col-auto">
-
-                                    <div className="form-check">
-                                        <input className="form-check-input" type="checkbox" value="" id="flexCheckDefaultFive" />
-                                        <label className="form-check-label" htmlFor="flexCheckDefaultFive">
-                                            Pool
-                                        </label>
-                                    </div>
-
-                                </div>
-                                <div className="col-auto">
-
-                                    <div className="form-check">
-                                        <input className="form-check-input" type="checkbox" value="" id="flexCheckDefaultSix" />
-                                        <label className="form-check-label" htmlFor="flexCheckDefaultSix">
-                                            Video surveillance
-                                        </label>
-                                    </div>
-
-                                </div>
-                                <div className="col-auto">
-
-                                    <div className="form-check">
-                                        <input className="form-check-input" type="checkbox" value="" id="flexCheckDefaultSeven" />
-                                        <label className="form-check-label" htmlFor="flexCheckDefaultSeven">
-                                            Laundry room
-                                        </label>
-                                    </div>
-
-                                </div>
-                                <div className="col-auto">
-
-                                    <div className="form-check">
-                                        <input className="form-check-input" type="checkbox" value="" id="flexCheckDefaultEight" />
-                                        <label className="form-check-label" htmlFor="flexCheckDefaultEight">
-                                            Jacuzzi
-                                        </label>
-                                    </div>
-
-                                </div>
-                                <div className="col-auto">
-
-                                    <div className="form-check">
-                                        <input className="form-check-input" type="checkbox" value="" id="flexCheckDefaultNine" />
-                                        <label className="form-check-label" htmlFor="flexCheckDefaultNine">
-                                            Security cameras
-                                        </label>
-                                    </div>
-
-                                </div>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -310,112 +514,6 @@ export default function AddListingPage() {
                     <div className="accordion listing-accordion" id="accordionExample">
                         <div className="accordion-item bg-transparent mb-3 rounded-4">
                             <h2 className="accordion-header">
-                                <button className="accordion-button bg-transparent shadow-none text-dark" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="true" aria-controls="collapseOne">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="23" height="23" fill="currentColor" className="bi bi-calendar2-plus text-primary me-3" viewBox="0 0 16 16">
-                                        <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM2 2a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1H2z" />
-                                        <path d="M2.5 4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5H3a.5.5 0 0 1-.5-.5V4zM8 8a.5.5 0 0 1 .5.5V10H10a.5.5 0 0 1 0 1H8.5v1.5a.5.5 0 0 1-1 0V11H6a.5.5 0 0 1 0-1h1.5V8.5A.5.5 0 0 1 8 8z" />
-                                    </svg>
-                                    <span className="fs-18 fw-medium">Add schedule plan</span><span className="count fs-13 ms-1 text-muted">(optional)</span>
-                                </button>
-                            </h2>
-                            <div id="collapseOne" className="accordion-collapse collapse show" data-bs-parent="#accordionExample">
-                                <div className="accordion-body p-4">
-                                    <div className="row g-4">
-                                        <div className="col-sm-3">
-
-                                            <div className="">
-                                                <label className="fw-medium mb-2">Date</label>
-                                                <input type="date" className="form-control" />
-                                            </div>
-
-                                        </div>
-                                        <div className="col-sm-3">
-
-                                            <div className="">
-                                                <label className="fw-medium mb-2">Time</label>
-                                                <input type="datetime-local" className="form-control" />
-                                            </div>
-
-                                        </div>
-                                        <div className="col-sm-3">
-
-                                            <div className="">
-                                                <label className="fw-medium mb-2">Place</label>
-                                                <input type="text" className="form-control" placeholder="Place" />
-                                            </div>
-
-                                        </div>
-                                        <div className="col-sm-3">
-
-                                            <div className="">
-                                                <label className="fw-medium mb-2">Address</label>
-                                                <input type="text" className="form-control" placeholder="8706 Herrick Ave, Valley..." />
-                                            </div>
-
-                                        </div>
-                                    </div>
-                                    <div className="text-center mt-3">
-                                        <button type="button" className="btn btn-primary-soft"><i className="fa fa-plus me-2"></i>Add another schedule item</button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="accordion-item bg-transparent mb-3 rounded-4">
-                            <h2 className="accordion-header">
-                                <button className="accordion-button bg-transparent bg-white collapsed text-dark shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="23" height="23" fill="currentColor" className="bi bi-cup-hot text-primary me-3" viewBox="0 0 16 16">
-                                        <path fillRule="evenodd" d="M.5 6a.5.5 0 0 0-.488.608l1.652 7.434A2.5 2.5 0 0 0 4.104 16h5.792a2.5 2.5 0 0 0 2.44-1.958l.131-.59a3 3 0 0 0 1.3-5.854l.221-.99A.5.5 0 0 0 13.5 6H.5ZM13 12.5a2.01 2.01 0 0 1-.316-.025l.867-3.898A2.001 2.001 0 0 1 13 12.5ZM2.64 13.825 1.123 7h11.754l-1.517 6.825A1.5 1.5 0 0 1 9.896 15H4.104a1.5 1.5 0 0 1-1.464-1.175Z" />
-                                        <path d="m4.4.8-.003.004-.014.019a4.167 4.167 0 0 0-.204.31 2.327 2.327 0 0 0-.141.267c-.026.06-.034.092-.037.103v.004a.593.593 0 0 0 .091.248c.075.133.178.272.308.445l.01.012c.118.158.26.347.37.543.112.2.22.455.22.745 0 .188-.065.368-.119.494a3.31 3.31 0 0 1-.202.388 5.444 5.444 0 0 1-.253.382l-.018.025-.005.008-.002.002A.5.5 0 0 1 3.6 4.2l.003-.004.014-.019a4.149 4.149 0 0 0 .204-.31 2.06 2.06 0 0 0 .141-.267c.026-.06.034-.092.037-.103a.593.593 0 0 0-.09-.252A4.334 4.334 0 0 0 3.6 2.8l-.01-.012a5.099 5.099 0 0 1-.37-.543A1.53 1.53 0 0 1 3 1.5c0-.188.065-.368.119-.494.059-.138.134-.274.202-.388a5.446 5.446 0 0 1 .253-.382l.025-.035A.5.5 0 0 1 4.4.8Zm3 0-.003.004-.014.019a4.167 4.167 0 0 0-.204.31 2.327 2.327 0 0 0-.141.267c-.026.06-.034.092-.037.103v.004a.593.593 0 0 0 .091.248c.075.133.178.272.308.445l.01.012c.118.158.26.347.37.543.112.2.22.455.22.745 0 .188-.065.368-.119.494a3.31 3.31 0 0 1-.202.388 5.444 5.444 0 0 1-.253.382l-.018.025-.005.008-.002.002A.5.5 0 0 1 6.6 4.2l.003-.004.014-.019a4.149 4.149 0 0 0 .204-.31 2.06 2.06 0 0 0 .141-.267c.026-.06.034-.092.037-.103a.593.593 0 0 0-.09-.252A4.334 4.334 0 0 0 6.6 2.8l-.01-.012a5.099 5.099 0 0 1-.37-.543A1.53 1.53 0 0 1 6 1.5c0-.188.065-.368.119-.494.059-.138.134-.274.202-.388a5.446 5.446 0 0 1 .253-.382l.025-.035A.5.5 0 0 1 7.4.8Zm3 0-.003.004-.014.019a4.077 4.077 0 0 0-.204.31 2.337 2.337 0 0 0-.141.267c-.026.06-.034.092-.037.103v.004a.593.593 0 0 0 .091.248c.075.133.178.272.308.445l.01.012c.118.158.26.347.37.543.112.2.22.455.22.745 0 .188-.065.368-.119.494a3.198 3.198 0 0 1-.202.388 5.385 5.385 0 0 1-.252.382l-.019.025-.005.008-.002.002A.5.5 0 0 1 9.6 4.2l.003-.004.014-.019a4.149 4.149 0 0 0 .204-.31 2.06 2.06 0 0 0 .141-.267c.026-.06.034-.092.037-.103a.593.593 0 0 0-.09-.252A4.334 4.334 0 0 0 9.6 2.8l-.01-.012a5.099 5.099 0 0 1-.37-.543A1.53 1.53 0 0 1 9 1.5c0-.188.065-.368.119-.494.059-.138.134-.274.202-.388a5.446 5.446 0 0 1 .253-.382l.025-.035A.5.5 0 0 1 10.4.8Z" />
-                                    </svg>
-                                    <span className="fs-18 fw-medium">Add restaurant menu</span><span className="count fs-13 ms-1 text-muted">(optional)</span>
-                                </button>
-                            </h2>
-                            <div id="collapseTwo" className="accordion-collapse collapse" data-bs-parent="#accordionExample">
-                                <div className="accordion-body p-4">
-                                    <div className="row g-4">
-                                        <div className="col-sm-4">
-
-                                            <div className="">
-                                                <label className="text-medium mb-2">Title</label>
-                                                <input type="date" className="form-control" />
-                                            </div>
-
-                                        </div>
-                                        <div className="col-sm-4">
-
-                                            <div className="">
-                                                <label className="fw-medium mb-2">Description</label>
-                                                <input type="text" className="form-control" />
-                                            </div>
-
-                                        </div>
-                                        <div className="col-sm-4">
-
-                                            <div className="">
-                                                <label className="fw-medium mb-2">Meal Type</label>
-                                              
-                                                <select
-                                                    className="form-select"
-                                                    value={form.meal}
-                                                    onChange={(e) => updateField("meal", e.target.value)}
-                                                >
-                                                    <option value="">Select meal type</option>
-                                                    <option value="1">Restaurant</option>
-                                                    <option value="2">Event</option>
-                                                    <option value="3">Adrenaline</option>
-                                                </select>
-                                            </div>
-
-                                        </div>
-                                    </div>
-                                    <div className="text-center mt-3">
-                                        <button type="button" className="btn btn-primary-soft"><i className="fa fa-plus me-2"></i>Add another meal</button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="accordion-item bg-transparent mb-3 rounded-4">
-                            <h2 className="accordion-header">
                                 <button className="accordion-button bg-transparent bg-white collapsed text-dark shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#collapseThree" aria-expanded="false" aria-controls="collapseThree">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="23" height="23" fill="currentColor" className="bi bi-alarm text-primary me-3" viewBox="0 0 16 16">
                                         <path d="M8.5 5.5a.5.5 0 0 0-1 0v3.362l-1.429 2.38a.5.5 0 1 0 .858.515l1.5-2.5A.5.5 0 0 0 8.5 9V5.5z" />
@@ -424,70 +522,65 @@ export default function AddListingPage() {
                                     <span className="fs-18 fw-medium">Add opening hours</span><span className="count fs-13 ms-1 text-muted">(optional)</span>
                                 </button>
                             </h2>
-                            <div id="collapseThree" className="accordion-collapse collapse" data-bs-parent="#accordionExample">
+                            <div id="collapseOne" className="accordion-collapse collapse show" data-bs-parent="#accordionExample">
                                 <div className="accordion-body p-4">
-                                    <div className="mb-3 row">
-                                        <label className="col-sm-2 col-form-label fw-medium">Monday</label>
-                                        <div className="col-sm-5">
-                                            <input type="text" className="form-control" placeholder="Open" />
-                                        </div>
-                                        <div className="col-sm-5">
-                                            <input type="text" className="form-control" placeholder="Close" />
-                                        </div>
-                                    </div>
-                                    <div className="mb-3 row">
-                                        <label className="col-sm-2 col-form-label fw-medium">Tuesday</label>
-                                        <div className="col-sm-5">
-                                            <input type="text" className="form-control" placeholder="Open" />
-                                        </div>
-                                        <div className="col-sm-5">
-                                            <input type="text" className="form-control" placeholder="Close" />
-                                        </div>
-                                    </div>
-                                    <div className="mb-3 row">
-                                        <label className="col-sm-2 col-form-label fw-medium">Wednesday</label>
-                                        <div className="col-sm-5">
-                                            <input type="text" className="form-control" placeholder="Open" />
-                                        </div>
-                                        <div className="col-sm-5">
-                                            <input type="text" className="form-control" placeholder="Close" />
-                                        </div>
-                                    </div>
-                                    <div className="mb-3 row">
-                                        <label className="col-sm-2 col-form-label fw-medium">Thursday</label>
-                                        <div className="col-sm-5">
-                                            <input type="text" className="form-control" placeholder="Open" />
-                                        </div>
-                                        <div className="col-sm-5">
-                                            <input type="text" className="form-control" placeholder="Close" />
-                                        </div>
-                                    </div>
-                                    <div className="mb-3 row">
-                                        <label className="col-sm-2 col-form-label fw-medium">Friday</label>
-                                        <div className="col-sm-5">
-                                            <input type="text" className="form-control" placeholder="Open" />
-                                        </div>
-                                        <div className="col-sm-5">
-                                            <input type="text" className="form-control" placeholder="Close" />
-                                        </div>
-                                    </div>
-                                    <div className="mb-3 row">
-                                        <label className="col-sm-2 col-form-label fw-medium">Saturday</label>
-                                        <div className="col-sm-5">
-                                            <input type="text" className="form-control" placeholder="Open" />
-                                        </div>
-                                        <div className="col-sm-5">
-                                            <input type="text" className="form-control" placeholder="Close" />
-                                        </div>
-                                    </div>
-                                    <div className="row">
-                                        <label className="col-sm-2 col-form-label fw-medium">Sunday</label>
-                                        <div className="col-sm-5">
-                                            <input type="text" className="form-control" placeholder="Open" />
-                                        </div>
-                                        <div className="col-sm-5">
-                                            <input type="text" className="form-control" placeholder="Close" />
-                                        </div>
+                                    <div className="card-body">
+                                        {[
+                                            ["Monday", "monday"],
+                                            ["Tuesday", "tuesday"],
+                                            ["Wednesday", "wednesday"],
+                                            ["Thursday", "thursday"],
+                                            ["Friday", "friday"],
+                                            ["Saturday", "saturday"],
+                                            ["Sunday", "sunday"],
+                                        ].map(([label, key]) => {
+                                            const isClosed = closedDays[key];
+                                            return (
+                                                <div className="mb-3 row align-items-center" key={key}>
+                                                    <label className="col-sm-2 col-form-label fw-medium">{label}</label>
+
+                                                    <div className="col-sm-4">
+                                                        <input
+                                                            type="time"
+                                                            className="form-control"
+                                                            name={`${key}_open_time`}
+                                                            value={form[`${key}_open_time`]}
+                                                            onChange={onInput}
+                                                            placeholder="Open"
+                                                            disabled={isClosed}
+                                                        />
+                                                    </div>
+
+                                                    <div className="col-sm-4">
+                                                        <input
+                                                            type="time"
+                                                            className="form-control"
+                                                            name={`${key}_close_time`}
+                                                            value={form[`${key}_close_time`]}
+                                                            onChange={onInput}
+                                                            placeholder="Close"
+                                                            disabled={isClosed}
+                                                        />
+                                                    </div>
+
+                                                    <div className="col-sm-2">
+                                                        <div className="form-check">
+                                                            <input
+                                                                className="form-check-input"
+                                                                type="checkbox"
+                                                                id={`${key}-closed`}
+                                                                checked={isClosed}
+                                                                onChange={toggleClosed(key)}
+                                                            />
+                                                            <label className="form-check-label" htmlFor={`${key}-closed`}>
+                                                                Closed
+                                                            </label>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+
                                     </div>
                                 </div>
                             </div>
@@ -497,35 +590,12 @@ export default function AddListingPage() {
             </div>
 
             <div className="card mb-4">
-                <div className="card-header position-relative">
-                    <h6 className="fs-17 fw-semi-bold mb-0">Add Pricing plan</h6>
-                </div>
                 <div className="card-body">
-                    <div className="table-responsive">
-                        <table id="faqs" className="table table-borderless">
-                            <thead>
-                                <tr>
-                                    <th className="fw-medium">Title</th>
-                                    <th className="fw-medium">Description</th>
-                                    <th className="fw-medium">Price</th>
-                                    <th className="fw-medium">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td><input type="text" className="form-control" /></td>
-                                    <td><input type="text" className="form-control" /></td>
-                                    <td><input type="text" className="form-control" placeholder="INR" /></td>
-                                    <td className="mt-10"><button type="button" className="btn btn-danger"><i className="fa fa-trash"></i></button></td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                    <div className="text-center">
-                        {/* <button onclick="addItem();" className="btn btn-primary-soft"><i className="fa fa-plus me-2"></i>Add New</button> */}
-
-                        <button className="btn btn-primary-soft"><i className="fa fa-plus me-2"></i>Add New</button>
-                    </div>
+                    {submitErr ? <div className="alert alert-danger">{submitErr}</div> : null}
+                    {okMsg ? <div className="alert alert-success">{okMsg}</div> : null}
+                    <button className="btn btn-primary" onClick={onSubmit} disabled={submitting}>
+                        {submitting ? "Creating…" : "Create Listing"}
+                    </button>
                 </div>
             </div>
 

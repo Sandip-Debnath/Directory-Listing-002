@@ -39,7 +39,6 @@ export default function Prifile() {
 
     const validatePwd = () => {
         const e = {};
-        if (!pwdForm.current_password) e.current_password = "Current password is required";
         if (!pwdForm.password) e.password = "New password is required";
         else if (pwdForm.password.length < 6) e.password = "New password must be at least 6 characters";
         if (!pwdForm.password_confirmation) e.password_confirmation = "Confirm your new password";
@@ -56,9 +55,9 @@ export default function Prifile() {
         try {
             setPwdSaving(true);
             await changePassword({
-                current_password: pwdForm.current_password,
-                password: pwdForm.password,
-                password_confirmation: pwdForm.password_confirmation,
+               
+                new_password: pwdForm.password,
+                // password_confirmation: pwdForm.password_confirmation,
             });
             setPwdOk("Password updated successfully.");
             setPwdForm({ current_password: "", password: "", password_confirmation: "" });
@@ -138,28 +137,7 @@ export default function Prifile() {
                 </div>
                 <div className="card-body">
                     <div className="row g-4">
-                        <div className="col-sm-6">
-                            <label className="required fw-medium mb-2">Current Password</label>
-                            <div className="position-relative">
-                                <input
-                                    type={showPwd.current ? "text" : "password"}
-                                    name="current_password"
-                                    className={`form-control${pwdErr.current_password ? " is-invalid" : ""}`}
-                                    autoComplete="current-password"
-                                    value={pwdForm.current_password}
-                                    onChange={onPwdChange}
-                                />
-                                <button
-                                    type="button"
-                                    aria-label="toggle current password"
-                                    className="btn btn-sm btn-link position-absolute top-0 end-0 mt-2 me-2"
-                                    onClick={() => setShowPwd((s) => ({ ...s, current: !s.current }))}
-                                >
-                                    <i className={`fa-regular ${showPwd.current ? "fa-eye" : "fa-eye-slash"}`} />
-                                </button>
-                            </div>
-                            {pwdErr.current_password && <div className="invalid-feedback d-block">{pwdErr.current_password}</div>}
-                        </div>
+                        
                         <div className="col-sm-6">
                             <label className="required fw-medium mb-2">New Password</label>
                             <div className="position-relative">
@@ -182,7 +160,7 @@ export default function Prifile() {
                             </div>
                             {pwdErr.password && <div className="invalid-feedback d-block">{pwdErr.password}</div>}
                         </div>
-                        <div className="col-sm-12">
+                        <div className="col-sm-6">
                             <label className="required fw-medium mb-2">Confirm Password</label>
                             <div className="position-relative">
                                 <input
