@@ -1,6 +1,8 @@
+// src\app\dashboard\my-listings\page.js
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react";
+import { getMyListings } from "@/utils/api/handlers";
 import Link from 'next/link';
 import Image from 'next/image';
 
@@ -9,6 +11,35 @@ import listingImage from '@/../public/assets/dashboard/assets/dist/img/05.jpg';
 
 
 export default function MyActiveListing() {
+
+    const [resp, setResp] = useState(null);
+    const [err, setErr] = useState("");
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        (async () => {
+            try {
+                setLoading(true);
+                const r = await getMyListings({
+                    verification_status: "approved",
+                    per_page: 20,
+                    page: 1,
+                });
+                setResp(r);
+            } catch (e) {
+                setErr(e?.message || "Request failed");
+                console.debug("[my-listings:error]", e);
+            } finally {
+                setLoading(false);
+            }
+        })();
+    }, []);
+
+
+
+
+
+
     return (
         <>
             <div className="align-items-end row g-4 mb-4" data-aos="fade-down">
@@ -152,7 +183,26 @@ export default function MyActiveListing() {
                     </div>
                 </div>
             </div>
-            
+
+
+
+            <nav className="justify-content-center mt-4 pagination align-items-center">
+                <a className="prev page-numbers" href="#">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" className="bi bi-arrow-left-short" viewBox="0 0 16 16">
+                        <path fillRule="evenodd" d="M12 8a.5.5 0 0 1-.5.5H5.707l2.147 2.146a.5.5 0 0 1-.708.708l-3-3a.5.5 0 0 1 0-.708l3-3a.5.5 0 1 1 .708.708L5.707 7.5H11.5a.5.5 0 0 1 .5.5z"></path>
+                    </svg>
+                    previous
+                </a>
+                <span className="page-numbers current">1</span>
+                <a className="page-numbers" href="#">2</a>
+                <a className="next page-numbers" href="#">
+                    next
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" className="bi bi-arrow-right-short" viewBox="0 0 16 16">
+                        <path fillRule="evenodd" d="M4 8a.5.5 0 0 1 .5-.5h5.793L8.146 5.354a.5.5 0 1 1 .708-.708l3 3a.5.5 0 0 1 0 .708l-3 3a.5.5 0 0 1-.708-.708L10.293 8.5H4.5A.5.5 0 0 1 4 8z"></path>
+                    </svg>
+                </a>
+            </nav>
+
         </>
     );
 }

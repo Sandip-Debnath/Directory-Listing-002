@@ -84,9 +84,20 @@ const http = async (
   const data = ct.includes("application/json") ? await res.json().catch(() => null) : await res.text();
 
   if (!res.ok) {
-    const message = (data && (data.message || data.error)) || `HTTP ${res.status}`;
-    const err = { status: res.status, message, data };
-    throw err;
+    const fromErrors =
+      data && data.errors
+        ? (typeof data.errors === "string" ? data.errors : JSON.stringify(data.errors))
+        : null;
+  
+    const fromBodyString = typeof data === "string" ? data : null;
+  
+    const message =
+      (data && (data.message || data.error)) ||
+      fromErrors ||
+      fromBodyString ||
+      `HTTP ${res.status}`;
+  
+    throw { status: res.status, message, data };
   }
   return data;
 };
@@ -131,15 +142,15 @@ export const getStatesByCountry = (country_id) =>
 export const getCities = (params = {}) =>
   get("/city-by-states", { params });
 
-export const getCategories = async () => {
-  const r = await get("/categories");      // -> { success, data: [...] }
-  return r?.data ?? [];
-};
+  export const getCategories = async () => {
+    const r = await get("/categories", { auth: true }); 
+    return r?.data ?? [];
+  };
 
-export const getTags = async (page = 1, per_page = 25) => {
-  const r = await get("/tags", { params: { page, per_page } }); // -> { success, data: { data:[...] } }
-  return r?.data?.data ?? [];
-};
+  export const getTags = async (page = 1, per_page = 25) => {
+    const r = await get("/tags", { params: { page, per_page }, auth: true });
+    return r?.data?.data ?? [];
+  };
 
 
 // --- Create Listing (multipart, with arrays + files) ---
@@ -200,6 +211,10 @@ export const createListing = async (payload = {}) => {
 
 
 // ------- Listings (examples) -------
+
+export const getMyListings = (params = {}) =>
+  get("/my-listings", { params, auth: true });
+  
 export const getListings = (params = {}) =>
   get("/listings", { params, auth: true });
 
