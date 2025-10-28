@@ -325,5 +325,10 @@ export const getMyEnquiries = (params = {}) =>
 export const deleteBookmark = (listing_id) =>
   post("/bookmarks/delete", { listing_id }, { auth: true });
 
+// Dashboard
+
+export const getMyDashBoard = (params = {}) =>
+  get("/my-dashboard", { params, auth: true });
+
 // Optionally expose the base for debugging
 export const API_BASE = BASE_URL;

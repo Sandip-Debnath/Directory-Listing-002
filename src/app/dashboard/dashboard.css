@@ -1,14 +1,16 @@
-/* src\app\dashboard\globals.css */
+/* src\app\dashboard\dashboard.css */
 
 /* Bring in dashboard vendor/theme styles */
-@import url('/assets/dashboard/assets/plugins/bootstrap/css/bootstrap.min.css');
+/* @import url('/assets/dashboard/assets/plugins/bootstrap/css/bootstrap.min.css');
 @import url('/assets/dashboard/assets/plugins/metisMenu/metisMenu.min.css');
 @import url('/assets/dashboard/assets/plugins/fontawesome/css/all.min.css');
 @import url('/assets/dashboard/assets/plugins/toastr/toastr.css');
 @import url('/assets/dashboard/assets/plugins/datatables/dataTables.bootstrap5.min.css');
 @import url('/assets/dashboard/assets/dist/css/app.min.css');
 @import url('/assets/dashboard/assets/dist/css/style.css');
-@import url('/assets/dashboard/assets/plugins/magnific-Popup/magnific-popup.css');
+@import url('/assets/dashboard/assets/plugins/magnific-Popup/magnific-popup.css'); */
+
+@import url('/assets/dashboard/dashboard-bundle.css');
 
 /* Hide site chrome only inside dashboard routes (after mount) */
 body.dashboard header,
