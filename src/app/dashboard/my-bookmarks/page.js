@@ -1,48 +1,65 @@
-// src/app/dashboard/my-listings/page.js
+// src/app/dashboard/my-bookmarks/page.js
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { getMyListings, deleteListingV2 } from "@/utils/api/handlers";
+import { getMyBookmarks, deleteBookmark } from "@/utils/api/handlers";
 import Image from "next/image";
 import fallbackImg from "@/../public/assets/dashboard/assets/dist/img/05.jpg";
 
-export default function MyActiveListing() {
+export default function MyBookMarks() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  const initialStatus =
-    searchParams.get("status") === "pending" ? "pending" : "approved";
+  // only page from URL (no status filter here)
   const initialPage = Number(searchParams.get("page") || 1);
 
-  const [status, setStatus] = useState(initialStatus);
   const [page, setPage] = useState(initialPage);
-  const [resp, setResp] = useState(null);
+  const [resp, setResp] = useState(null);   // will store a paginator with items already normalized to "listing" shape
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
 
-  // delete modal state
+  // delete confirm state (remove bookmark)
   const [showDelete, setShowDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [targetId, setTargetId] = useState(null);
-
-  const titleLabel = useMemo(
-    () => (status === "approved" ? "Active" : "Pending"),
-    [status]
-  );
+  const [targetId, setTargetId] = useState(null); // this is the listing_id to delete
 
   const fetchData = async (opts = {}) => {
     setErr("");
     setLoading(true);
     try {
-      const r = await getMyListings({
-        verification_status: status,
-        page: opts.page ?? page, // no per_page
+      const r = await getMyBookmarks({
+        page: opts.page ?? page,
       });
-      setResp(r);
+
+      // ---- Normalize: convert bookmark rows -> listing rows ----
+      // API shape: { data: { data: [ { id, listing_id, listing: {...} }, ... ] } }
+      const paginator = r?.data ?? {};
+      const rawItems = Array.isArray(paginator?.data) ? paginator.data : [];
+
+      const normalizedItems = rawItems
+        .map((row) => {
+          // ensure listing exists; attach helper props if useful
+          if (!row?.listing) return null;
+          return {
+            ...row.listing,
+            _bookmarkId: row.id,          // (optional) bookmark row id
+            _isBookmarked: true,          // (optional) flag
+          };
+        })
+        .filter(Boolean);
+
+      setResp({
+        ...r,
+        data: {
+          ...paginator,
+          data: normalizedItems,
+        },
+      });
+      // ----------------------------------------------------------
     } catch (e) {
       setErr(e?.message || "Request failed");
-      console.debug("[my-listings:error]", e);
+      console.debug("[my-bookmarks:error]", e);
     } finally {
       setLoading(false);
     }
@@ -50,34 +67,25 @@ export default function MyActiveListing() {
 
   // Sync URL -> state (back/forward)
   useEffect(() => {
-    const qsStatus =
-      searchParams.get("status") === "pending" ? "pending" : "approved";
     const qsPage = Number(searchParams.get("page") || 1);
-    if (qsStatus !== status) setStatus(qsStatus);
     if (qsPage !== page) setPage(qsPage);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
-  // Sync state -> URL (avoid redundant replace)
+  // Keep ?page in URL; DO NOT redirect to other routes
   useEffect(() => {
     const sp = new URLSearchParams();
-    sp.set("status", status);
     if (page > 1) sp.set("page", String(page));
-    const next = `/dashboard/my-listings?${sp.toString()}`;
+    const next = `/dashboard/my-bookmarks?${sp.toString()}`;
     const current = window.location.pathname + window.location.search;
     if (next !== current) router.replace(next);
-  }, [status, page, router]);
-
-  // Reset to page 1 on filter change
-  useEffect(() => {
-    setPage(1);
-  }, [status]);
+  }, [page, router]);
 
   // Fetch data
   useEffect(() => {
     fetchData({ page });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, page]);
+  }, [page]);
 
   const data = resp?.data;
   const items = data?.data || [];
@@ -103,16 +111,12 @@ export default function MyActiveListing() {
     )}`;
   };
 
-  const onEdit = (id) => {
-    router.push(`/dashboard/listings/${id}/edit`);
-  };
-
   const onCardClick = (id) => {
     router.push(`/listing-details/${id}`);
   };
 
-  const onAskDelete = (id) => {
-    setTargetId(id);
+  const onAskDelete = (listingId) => {
+    setTargetId(listingId);
     setShowDelete(true);
   };
 
@@ -121,15 +125,17 @@ export default function MyActiveListing() {
     setDeleting(true);
     setErr("");
     try {
-      await deleteListingV2(targetId);
-      // remove from view without refetch
+      // endpoint expects: { listing_id }
+      await deleteBookmark(targetId);
+
+      // Remove from list without refetch
       setResp((prev) => {
         if (!prev?.data?.data) return prev;
         const filtered = prev.data.data.filter((x) => x.id !== targetId);
         return { ...prev, data: { ...prev.data, data: filtered } };
       });
     } catch (e) {
-      setErr(e?.message || "Delete failed");
+      setErr(e?.message || "Failed to remove bookmark");
     } finally {
       setDeleting(false);
       setShowDelete(false);
@@ -137,68 +143,41 @@ export default function MyActiveListing() {
     }
   };
 
-
-
   return (
     <div>
       <div className="align-items-end row g-4 mb-4" data-aos="fade-down">
         <div className="col">
           <div className="section-header">
             <div className="font-caveat fs-4 fw-bold fw-medium section-header__subtitle text-capitalize text-center text-primary text-xl-start">
-              My Listings
+              Bookmarked
             </div>
 
             <h2 className="fw-semibold mb-0 section-header__title text-capitalize text-center text-xl-start h3">
-              {titleLabel} Listings
+              Bookmarked Listings
             </h2>
 
             <div className="sub-title fs-16 text-center text-xl-start">
-              Showing your{" "}
+              Discover exciting categories.{" "}
               <span className="text-primary fw-semibold">
-                {titleLabel.toLowerCase()}
-              </span>{" "}
-              listings.
+                Find what you’re looking for.
+              </span>
             </div>
           </div>
         </div>
 
-        {/* Filter dropdown (replaces "See All") */}
-        <div className="col-12 col-xl-auto">
-          <div className="d-flex justify-content-center justify-content-xl-end">
-            <select
-              className="form-select w-auto"
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-              aria-label="Filter by verification status"
-            >
-              <option value="approved">Active</option>
-              <option value="pending">Pending</option>
-            </select>
-          </div>
-        </div>
+        {/* design spacer; filter intentionally removed */}
+        <div className="col-12 col-xl-auto" />
       </div>
 
       {err ? <div className="alert alert-danger">{err}</div> : null}
       {loading ? (
         <div>Loading…</div>
       ) : items.length === 0 ? (
-        <div className="alert alert-info mb-3">
-          No {titleLabel.toLowerCase()} listings found.
-        </div>
+        <div className="alert alert-info mb-3">No bookmarks found.</div>
       ) : null}
 
       {items.map((item) => {
         const hero = item.images?.[0]?.url || null;
-        const ratings = Array.isArray(item.reviews)
-          ? item.reviews
-            .map(r => Number(r?.rating))
-            .filter(n => Number.isFinite(n) && n > 0)
-          : [];
-
-        const reviewCount = ratings.length;
-        const avgRating = reviewCount
-          ? ratings.reduce((a, b) => a + b, 0) / reviewCount
-          : 0;
 
         return (
           <div
@@ -207,7 +186,9 @@ export default function MyActiveListing() {
             role="button"
             tabIndex={0}
             onClick={() => onCardClick(item.id)}
-            onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onCardClick(item.id)}
+            onKeyDown={(e) =>
+              (e.key === "Enter" || e.key === " ") && onCardClick(item.id)
+            }
             style={{ cursor: "pointer" }}
           >
             <div className="card-body p-0">
@@ -232,42 +213,29 @@ export default function MyActiveListing() {
 
                 <div className="col-lg-9 col-md-7 col-sm-8 col-xxl-10 p-3 p-lg-4 p-md-3 p-sm-4">
                   <div className="d-flex flex-column h-100">
-                    {/* Edit / Delete buttons — right side */}
-                    <div className="d-flex gap-2 ms-auto">
+                    {/* delete bookmark button (kept same design spot) */}
+                    <div className="d-flex end-0 gap-2 me-3 mt-3 position-absolute top-0 z-1">
                       <button
                         type="button"
-                        className="btn btn-sm btn-outline-primary"
-                        onClick={(e) => { e.stopPropagation(); onEdit(item.id); }}
-                        aria-label="Edit listing"
+                        className="align-items-center bg-light btn-icon d-flex justify-content-center rounded-circle text-primary"
+                        title="Remove bookmark"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onAskDelete(item.id); // item.id is listing id after normalization
+                        }}
                       >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-outline-danger"
-                        onClick={(e) => { e.stopPropagation(); onAskDelete(item.id); }}
-                        aria-label="Delete listing"
-                      >
-                        Delete
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="16"
+                          height="16"
+                          fill="currentColor"
+                          className="bi bi-trash3"
+                          viewBox="0 0 16 16"
+                        >
+                          <path d="M6.5 1h3a.5.5 0 0 1 .5.5v1H6v-1a.5.5 0 0 1 .5-.5M11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3A1.5 1.5 0 0 0 5 1.5v1H2.506a.58.58 0 0 0-.01 0H1.5a.5.5 0 0 0 0 1h.538l.853 10.66A2 2 0 0 0 4.885 16h6.23a2 2 0 0 0 1.994-1.84l.853-10.66h.538a.5.5 0 0 0 0-1h-.995a.59.59 0 0 0-.01 0zm1.958 1-.846 10.58a1 1 0 0 1-.997.92h-6.23a1 1 0 0 1-.997-.92L3.042 3.5zm-7.487 1a.5.5 0 0 1 .528.47l.5 8.5a.5.5 0 0 1-.998.06L5 5.03a.5.5 0 0 1 .47-.53Zm5.058 0a.5.5 0 0 1 .47.53l-.5 8.5a.5.5 0 1 1-.998-.06l.5-8.5a.5.5 0 0 1 .528-.47ZM8 4.5a.5.5 0 0 1 .5.5v8.5a.5.5 0 0 1-1 0V5a.5.5 0 0 1 .5-.5" />
+                        </svg>
                       </button>
                     </div>
-
-                    {/* keep reviews section commented (required later) */}
-
-                    <div
-                      className="align-items-center d-flex flex-wrap gap-1 text-primary card-start mb-2"
-                      style={{ marginTop: "-30px" }}
-                    >
-                      <i className="fa-solid fa-star"></i>
-                      <span className="fw-medium text-primary">
-                        <span className="fs-6 fw-semibold me-1">
-                          ({reviewCount ? avgRating.toFixed(1) : "—"})
-                        </span>
-                        {reviewCount} {reviewCount === 1 ? "review" : "reviews"}
-                      </span>
-                    </div>
-
-
 
                     <h4 className="fs-18 fw-semibold mb-0 d-flex align-items-center gap-2 mt-2">
                       {item.listing_title || "—"}
@@ -294,6 +262,7 @@ export default function MyActiveListing() {
                         <a
                           href={`tel:${item.mobile}`}
                           className="d-flex gap-2 align-items-center fs-13 fw-semibold"
+                          onClick={(e) => e.stopPropagation()}
                         >
                           <svg
                             xmlns="http://www.w3.org/2000/svg"
@@ -315,6 +284,7 @@ export default function MyActiveListing() {
                         rel="noopener noreferrer"
                         className="d-flex gap-2 align-items-center fs-13 fw-semibold"
                         title="Open in Google Maps"
+                        onClick={(e) => e.stopPropagation()}
                       >
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
@@ -366,8 +336,9 @@ export default function MyActiveListing() {
             <button
               key={n}
               onClick={() => setPage(n)}
-              className={`page-numbers btn ${n === currentPage ? "btn-primary" : "btn-light"
-                }`}
+              className={`page-numbers btn ${
+                n === currentPage ? "btn-primary" : "btn-light"
+              }`}
             >
               {n}
             </button>
@@ -396,7 +367,7 @@ export default function MyActiveListing() {
         </nav>
       )}
 
-      {/* Delete confirmation modal (simple controlled UI) */}
+      {/* Delete confirmation modal */}
       {showDelete && (
         <div
           className="modal fade show"
@@ -407,7 +378,7 @@ export default function MyActiveListing() {
           <div className="modal-dialog modal-dialog-centered">
             <div className="modal-content">
               <div className="modal-header">
-                <h5 className="modal-title">Delete Listing</h5>
+                <h5 className="modal-title">Remove Bookmark</h5>
                 <button
                   type="button"
                   className="btn-close"
@@ -415,7 +386,7 @@ export default function MyActiveListing() {
                 />
               </div>
               <div className="modal-body">
-                Are you sure you want to delete this listing?
+                Are you sure you want to remove this bookmark?
               </div>
               <div className="modal-footer">
                 <button
@@ -432,7 +403,7 @@ export default function MyActiveListing() {
                   onClick={onConfirmDelete}
                   disabled={deleting}
                 >
-                  {deleting ? "Deleting…" : "Delete"}
+                  {deleting ? "Removing…" : "Remove"}
                 </button>
               </div>
             </div>

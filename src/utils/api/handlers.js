@@ -88,15 +88,15 @@ const http = async (
       data && data.errors
         ? (typeof data.errors === "string" ? data.errors : JSON.stringify(data.errors))
         : null;
-  
+
     const fromBodyString = typeof data === "string" ? data : null;
-  
+
     const message =
       (data && (data.message || data.error)) ||
       fromErrors ||
       fromBodyString ||
       `HTTP ${res.status}`;
-  
+
     throw { status: res.status, message, data };
   }
   return data;
@@ -142,15 +142,15 @@ export const getStatesByCountry = (country_id) =>
 export const getCities = (params = {}) =>
   get("/city-by-states", { params });
 
-  export const getCategories = async () => {
-    const r = await get("/categories", { auth: true }); 
-    return r?.data ?? [];
-  };
+export const getCategories = async () => {
+  const r = await get("/categories", { auth: true });
+  return r?.data ?? [];
+};
 
-  export const getTags = async (page = 1, per_page = 25) => {
-    const r = await get("/tags", { params: { page, per_page }, auth: true });
-    return r?.data?.data ?? [];
-  };
+export const getTags = async (page = 1, per_page = 25) => {
+  const r = await get("/tags", { params: { page, per_page }, auth: true });
+  return r?.data?.data ?? [];
+};
 
 
 // --- Create Listing (multipart, with arrays + files) ---
@@ -170,7 +170,7 @@ export const createListing = async (payload = {}) => {
     "address", "zipcode", "country_id", "state_id", "city_id",
     "lat", "long",
     "mobile", "email", "company_website",
-    "fb_link", "twitter_link", "insta_link", "linkedin_link",
+    "fb_link", "twitter_link", "insta_link", "linkedin_link", "location_name",
   ].forEach((k) => appendIf(k, payload[k]));
 
   // Opening hours
@@ -214,7 +214,64 @@ export const createListing = async (payload = {}) => {
 
 export const getMyListings = (params = {}) =>
   get("/my-listings", { params, auth: true });
-  
+
+export const getListingV2 = (id) =>
+  get(`/listing/${id}`, { auth: true });
+
+export const updateListingV2 = async (payload = {}) => {
+  // Build FormData (supports arrays/files)
+  const fd = new FormData();
+  const appendIf = (k, v) => {
+    if (v === undefined) return;          // skip only undefined
+    if (v === null) { fd.append(k, ""); return; } // send empty string to nullify
+    if (typeof v === "string" && v.trim() === "") return;
+    fd.append(k, v);
+  };
+
+  // require listing id
+  appendIf("id", payload.id);
+
+  [
+    "listing_title", "slug", "description",
+    "address", "zipcode", "country_id", "state_id", "city_id",
+    "lat", "long", "location_name",
+    "mobile", "email", "company_website",
+    "fb_link", "twitter_link", "insta_link", "linkedin_link",
+    "monday_open_time", "monday_close_time",
+    "tuesday_open_time", "tuesday_close_time",
+    "wednesday_open_time", "wednesday_close_time",
+    "thursday_open_time", "thursday_close_time",
+    "friday_open_time", "friday_close_time",
+    "saturday_open_time", "saturday_close_time",
+    "sunday_open_time", "sunday_close_time",
+  ].forEach((k) => appendIf(k, payload[k]));
+
+  if (Array.isArray(payload.category_ids)) {
+    payload.category_ids.forEach((id) => appendIf("category_ids[]", String(id)));
+  }
+  if (Array.isArray(payload.tag_ids)) {
+    payload.tag_ids.forEach((id) => appendIf("tag_ids[]", String(id)));
+  }
+  if (Array.isArray(payload.tag_names)) {
+    payload.tag_names.forEach((name) => appendIf("tag_names[]", name));
+  }
+  if (Array.isArray(payload.images)) {
+    payload.images.forEach((file) => {
+      if (file instanceof Blob) fd.append("images[]", file);
+    });
+  }
+
+  return http("/listing/update", {
+    method: "POST",
+    body: fd,
+    form: true,
+    auth: true,
+  });
+};
+
+export const deleteListingV2 = (id) =>
+  post("/listing/delete", { id }, { auth: true });
+
 export const getListings = (params = {}) =>
   get("/listings", { params, auth: true });
 
@@ -226,6 +283,47 @@ export const updateListing = (id, payload) =>
 
 export const deleteListing = (id) =>
   del(`/listings/${id}`, { auth: true });
+
+// Reviews: list (NO AUTH)
+export const getListingReviews = (listingId, { page = 1, perPage = 10 } = {}) =>
+  get(`/listings/${listingId}/reviews`, {
+    params: { per_page: perPage, page },
+    auth: false,
+  });
+
+// Reviews: create (AUTH)
+export const createListingReview = async ({ listing_id, rating, comment }) => {
+  // small guard (backend already validates)
+  const rInt = parseInt(rating, 10);
+  if (!Number.isInteger(rInt) || rInt < 1 || rInt > 5) {
+    throw new Error("Rating must be an integer between 1 and 5");
+  }
+  return post(`/listing-reviews`, { listing_id, rating: rInt, comment }, { auth: true });
+};
+
+export const getListingEnquiries = (listingId) =>
+  get(`/listings/${listingId}/enquiries`, { auth: true });
+
+
+export const createEnquiry = (payload = {}) =>
+  post("/enquiries", payload, { auth: true });
+// payload expects: { listing_id, name, email, message, channel?, payload?, status?, is_read?, ip_address? }
+// Usually you'll just send { listing_id, name, email, message, channel: 'web' }.
+// Backend should derive user_id from token; don't send user_id from client.
+
+export const storeBookmark = (listing_id) =>
+  post("/bookmarks", { listing_id }, { auth: true });
+
+// Bookmarks
+
+export const getMyBookmarks = (params = {}) =>
+  get("/my-bookmarks", { params, auth: true }); 
+  
+export const getMyEnquiries = (params = {}) =>
+  get("/my-enquiries", { params, auth: true });
+
+export const deleteBookmark = (listing_id) =>
+  post("/bookmarks/delete", { listing_id }, { auth: true });
 
 // Optionally expose the base for debugging
 export const API_BASE = BASE_URL;

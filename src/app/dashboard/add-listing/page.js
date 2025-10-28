@@ -44,6 +44,7 @@ export default function AddListingPage() {
         sunday_open_time: "", sunday_close_time: "",
         // UI helpers
         location_address: "",
+        location_name: "",
         // Category/Tags for API
         category_id: "",
         tags: [],            // [{id,name}] from TagPicker
@@ -155,7 +156,9 @@ export default function AddListingPage() {
                 state_id: form.state_id || undefined,
                 city_id: form.city_id || undefined,
                 lat: form.lat || undefined,
-                long: form.long || undefined,
+                long:form.long || undefined,
+                location_name: form.location_name || form.location_address || undefined,
+                location_address: form.location_address || undefined,
                 // Contact
                 mobile: form.mobile || undefined,
                 email: form.email || undefined,
@@ -401,10 +404,18 @@ export default function AddListingPage() {
                             <label className="required fw-medium mb-2">Select Location</label>
                             <PlacesAutocomplete
                                 value={form.location_address}
-                                onSelect={({ address, lat, lng }) => {
-                                    setForm(f => ({ ...f, location_address: address, lat: String(lat), long: String(lng) }));
+                                onSelect={({ address, lat, lng, name, place_name }) => {
+                                    const prettyName = name || place_name || address;  // ✅ fixed
+                                    setForm(f => ({
+                                        ...f,
+                                        location_address: address,
+                                        location_name: prettyName,
+                                        lat: String(lat),
+                                        long: String(lng),
+                                    }));
                                 }}
                             />
+
                             <small className="text-muted d-block mt-1">Lat: {form.lat || "—"} | Lng: {form.long || "—"}</small>
 
                         </div>
