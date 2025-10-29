@@ -1,0 +1,73 @@
+# Starter pipeline
+# Start with a minimal pipeline that you can customize to build and deploy your code.
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
+
+trigger:
+  tags:
+    include:
+      - dev-deployment*
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - script: echo Deployment Started,
+      apt-get update -qy
+      apt-get -y install zip unzip
+      apt-get install sshpass
+    displayName: "Installing zip and sshpass"
+
+  - script: |
+      echo Add other tasks to build, test, and deploy your project.
+      echo See https://aka.ms/yaml
+    displayName: "Run a multi-line script"
+  - script: |
+      npm install
+      npm run build
+    displayName: "Build React project"
+  - task: CopyFiles@2
+    inputs:
+      Contents: "$(Build.SourcesDirectory)/build/**"
+      TargetFolder: "$(Build.ArtifactStagingDirectory)/SafeDrive"
+  - task: ArchiveFiles@2
+    inputs:
+      rootFolderOrFile: "$(Build.ArtifactStagingDirectory)/SafeDrive"
+      includeRootFolder: true
+      archiveType: "zip"
+      archiveFile: "$(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip"
+      replaceExistingArchive: true
+  # - task: PowerShell@2
+  #   inputs:
+  #     targetType: 'inline'
+  #     script: 'ssh $username@$hostname -p "$username"'
+
+  - script: |
+      sshpass -p $(password) scp -o StrictHostKeyChecking=no $(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip $(username)@$(hostname):~
+      sshpass -p $(password) ssh -o StrictHostKeyChecking=no $(username)@$(hostname) "
+     
+      if [ -d $(folderLocation) ]; then
+          sudo rm -rf $(folderLocation)/*
+      fi
+      # Move the build files to the server
+      sudo mv ~/$(Build.BuildId).zip $(folderLocation)/;
+      
+      cd $(folderLocation);
+      sudo unzip -o $(folderLocation)/$(Build.BuildId).zip;
+      sudo mv $(folderLocation)/SafeDrive/build/* $(folderLocation);
+
+      # Create .htaccess file directly in the root folder using echo
+      echo '<IfModule mod_rewrite.c>' | sudo tee $(folderLocation)/.htaccess
+      echo '    RewriteEngine On' | sudo tee -a $(folderLocation)/.htaccess
+      echo '    RewriteBase /SafeDrive' | sudo tee -a $(folderLocation)/.htaccess
+      echo '    RewriteRule ^index\.html$ - [L]' | sudo tee -a $(folderLocation)/.htaccess
+      echo '    RewriteCond %{REQUEST_FILENAME} !-f' | sudo tee -a $(folderLocation)/.htaccess
+      echo '    RewriteCond %{REQUEST_FILENAME} !-d' | sudo tee -a $(folderLocation)/.htaccess
+      echo '    RewriteRule . /index.html [L]' | sudo tee -a $(folderLocation)/.htaccess
+      echo '</IfModule>' | sudo tee -a $(folderLocation)/.htaccess
+
+      sudo chown -R $(folder_owner):$(folder_group) $(folderLocation);
+      sudo chmod -R 755 $(folderLocation);
+      sudo rm -rf $(folderLocation)/$(Build.BuildId).zip $(folderLocation)/SafeDrive;
+      exit; exit;"
+    displayName: "Deploying to the server"
