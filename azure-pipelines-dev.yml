@@ -23,15 +23,29 @@ steps:
       npm run build
     displayName: "Build React project"
 
+  # Ensure that the files are copied correctly
   - task: CopyFiles@2
     inputs:
       Contents: "$(Build.SourcesDirectory)/build/**"
       TargetFolder: "$(Build.ArtifactStagingDirectory)/SafeDrive"
 
+  # List contents of Source Directory to verify build output
   - script: |
-      echo "Listing contents of $(Build.ArtifactStagingDirectory)/SafeDrive"
-      ls -alh $(Build.ArtifactStagingDirectory)/SafeDrive
-    displayName: "List contents of SafeDrive"
+      echo "Listing contents of $(Build.SourcesDirectory)"
+      ls -alh $(Build.SourcesDirectory)
+    displayName: "List contents of Source Directory"
+
+  # List contents of Artifact Staging Directory to verify files are copied
+  - script: |
+      echo "Listing contents of $(Build.ArtifactStagingDirectory)"
+      ls -alh $(Build.ArtifactStagingDirectory)
+    displayName: "List contents of Artifact Staging Directory"
+
+  # Ensure SafeDrive directory exists before zipping
+  - script: |
+      mkdir -p $(Build.ArtifactStagingDirectory)/SafeDrive
+      echo "SafeDrive directory created"
+    displayName: "Create SafeDrive directory"
 
   - task: ArchiveFiles@2
     inputs:
@@ -70,4 +84,3 @@ steps:
       sudo rm -rf $(folderLocation)/$(Build.BuildId).zip $(folderLocation)/SafeDrive;
       exit; exit;"
     displayName: "Deploying to the server"
-    
