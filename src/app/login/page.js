@@ -1,21 +1,22 @@
 // src\app\login\page.js
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from "next/navigation";
 import { useAppDispatch } from "@/store";
 import { login as loginThunk } from "@/store/authSlice";
-import { useSearchParams } from "next/navigation";
+
 
 import loginImage from '@/../public/assets/images/png-img/login.png';
 import lineImage from '@/../public/assets/images/lines.svg';
 
 export default function LoginPage() {
-    const searchParams = useSearchParams();
+    
     const router = useRouter();
     const dispatch = useAppDispatch();
+    const [next, setNext] = useState('');
     const [showPwd, setShowPwd] = useState(false);
     const [loading, setLoading] = useState(false);
     const [serverErr, setServerErr] = useState("");
@@ -24,10 +25,21 @@ export default function LoginPage() {
         password: "",
         remember: false,
     });
+
+    useEffect(() => {
+        // Check if router.query exists and safely access the 'next' parameter
+        if (router.query && router.query.next) {
+            setNext(router.query.next); // Set the "next" query param if it exists
+        } else {
+            setNext("/dashboard"); // Default to "/dashboard" if "next" is not found
+        }
+    }, [router.query]); // Dependency on router.query
+
     const onChange = (e) => {
         const { name, value, type, checked } = e.target;
         setForm((s) => ({ ...s, [name]: type === "checkbox" ? checked : value }));
     };
+    
     const onSubmit = async (e) => {
         e.preventDefault();
         setServerErr("");
@@ -36,10 +48,9 @@ export default function LoginPage() {
         try {
             setLoading(true);
             await dispatch(
-                loginThunk({ email_or_mobile: form.email_or_mobile.trim(), password: form.password,})
+                loginThunk({ email_or_mobile: form.email_or_mobile.trim(), password: form.password, })
             ).unwrap();
-            const next = searchParams.get("next");
-            router.push(next || "/dashboard");
+            router.push(next); // Redirect to the "next" page after successful login
         } catch (err) {
             setServerErr(err?.message || "Invalid credentials");
         } finally {
