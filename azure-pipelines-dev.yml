@@ -70,3 +70,4 @@ steps:
       sudo rm -rf $(folderLocation)/$(Build.BuildId).zip $(folderLocation)/SafeDrive;
       exit; exit;"
     displayName: "Deploying to the server"
+    
