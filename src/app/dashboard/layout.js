@@ -1,5 +1,5 @@
 // src/app/dashboard/layout.js
-import './globals.css';
+import './dashboard.css';
 import Script from 'next/script';
 import DashboardClientShell from './DashboardClientShell';
 import AuthGuard from "@/components/AuthGuard";
@@ -35,7 +35,7 @@ export default function DashboardLayout({ children }) {
       <Script src="/assets/dashboard/assets/dist/js/app.min.js" strategy="afterInteractive" />
       <Script src="/assets/dashboard/assets/dist/js/dashboard.js" strategy="afterInteractive" />
 
-      <script src="/assets/dashboard/assets/plugins/jquery-fancyfileuploader/fancy-file-uploader/jquery.fancy-fileupload.js" strategy="afterInteractive" ></script>
+      <Script src="/assets/dashboard/assets/plugins/jquery-fancyfileuploader/fancy-file-uploader/jquery.fancy-fileupload.js" strategy="afterInteractive" />
     </>
   );
 }

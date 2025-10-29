@@ -6,9 +6,12 @@ import Image from "next/image";
 import { getCountries, getStatesByCountry, getCities, getCategories, getTags, createListing } from "@/utils/api/handlers";
 import TagPicker from "@/components/TagPicker";
 import PlacesAutocomplete from "@/components/PlacesAutocomplete";
+import { useRouter } from "next/navigation";
 
 
 export default function AddListingPage() {
+    const router = useRouter();
+
     const [form, setForm] = useState({
         // Basic
         listing_title: "",
@@ -41,6 +44,7 @@ export default function AddListingPage() {
         sunday_open_time: "", sunday_close_time: "",
         // UI helpers
         location_address: "",
+        location_name: "",
         // Category/Tags for API
         category_id: "",
         tags: [],            // [{id,name}] from TagPicker
@@ -152,7 +156,9 @@ export default function AddListingPage() {
                 state_id: form.state_id || undefined,
                 city_id: form.city_id || undefined,
                 lat: form.lat || undefined,
-                long: form.long || undefined,
+                long:form.long || undefined,
+                location_name: form.location_name || form.location_address || undefined,
+                location_address: form.location_address || undefined,
                 // Contact
                 mobile: form.mobile || undefined,
                 email: form.email || undefined,
@@ -190,7 +196,43 @@ export default function AddListingPage() {
             // Optional: reset minimal fields
             // setForm(f => ({ ...f, listing_title:"", slug:"", description:"", tags:[], category_id:"" }));
             // setGalleryFiles([]);
+            setForm({
+                listing_title: "",
+                slug: "",
+                description: "",
+                address: "",
+                zipcode: "",
+                country_id: "",
+                state_id: "",
+                city_id: "",
+                lat: "",
+                long: "",
+                mobile: "",
+                email: "",
+                company_website: "",
+                fb_link: "",
+                twitter_link: "",
+                insta_link: "",
+                linkedin_link: "",
+                monday_open_time: "", monday_close_time: "",
+                tuesday_open_time: "", tuesday_close_time: "",
+                wednesday_open_time: "", wednesday_close_time: "",
+                thursday_open_time: "", thursday_close_time: "",
+                friday_open_time: "", friday_close_time: "",
+                saturday_open_time: "", saturday_close_time: "",
+                sunday_open_time: "", sunday_close_time: "",
+                location_address: "",
+                category_id: "",
+                tags: [],
+            });
+            setGalleryFiles([]);
+            setTimeout(() => router.push("/dashboard/my-listings"), 800);
         } catch (err) {
+            const raw =
+                typeof err?.data === "string"
+                    ? err.data
+                    : (err?.data ? JSON.stringify(err.data, null, 2) : null);
+
             setSubmitErr(err?.message || "Failed to create listing");
         } finally {
             setSubmitting(false);
@@ -362,10 +404,18 @@ export default function AddListingPage() {
                             <label className="required fw-medium mb-2">Select Location</label>
                             <PlacesAutocomplete
                                 value={form.location_address}
-                                onSelect={({ address, lat, lng }) => {
-                                    setForm(f => ({ ...f, location_address: address, lat: String(lat), long: String(lng) }));
+                                onSelect={({ address, lat, lng, name, place_name }) => {
+                                    const prettyName = name || place_name || address;  // ✅ fixed
+                                    setForm(f => ({
+                                        ...f,
+                                        location_address: address,
+                                        location_name: prettyName,
+                                        lat: String(lat),
+                                        long: String(lng),
+                                    }));
                                 }}
                             />
+
                             <small className="text-muted d-block mt-1">Lat: {form.lat || "—"} | Lng: {form.long || "—"}</small>
 
                         </div>
@@ -591,7 +641,11 @@ export default function AddListingPage() {
 
             <div className="card mb-4">
                 <div className="card-body">
-                    {submitErr ? <div className="alert alert-danger">{submitErr}</div> : null}
+                    {submitErr ? (
+                        <pre className="alert alert-danger mb-0" style={{ whiteSpace: "pre-wrap" }}>
+                            {submitErr}
+                        </pre>
+                    ) : null}
                     {okMsg ? <div className="alert alert-success">{okMsg}</div> : null}
                     <button className="btn btn-primary" onClick={onSubmit} disabled={submitting}>
                         {submitting ? "Creating…" : "Create Listing"}
