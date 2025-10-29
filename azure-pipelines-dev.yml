@@ -1,3 +1,8 @@
+# Starter pipeline
+# Start with a minimal pipeline that you can customize to build and deploy your code.
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
+
 trigger:
   branches:
     include:
@@ -17,36 +22,15 @@ steps:
       echo Add other tasks to build, test, and deploy your project.
       echo See https://aka.ms/yaml
     displayName: "Run a multi-line script"
-
   - script: |
       npm install
+      sentry-cli login --auth-token $(sentry_auth_token)
       npm run build
     displayName: "Build React project"
-
-  # Ensure that the files are copied correctly
   - task: CopyFiles@2
     inputs:
       Contents: "$(Build.SourcesDirectory)/build/**"
       TargetFolder: "$(Build.ArtifactStagingDirectory)/SafeDrive"
-
-  # List contents of Source Directory to verify build output
-  - script: |
-      echo "Listing contents of $(Build.SourcesDirectory)"
-      ls -alh $(Build.SourcesDirectory)
-    displayName: "List contents of Source Directory"
-
-  # List contents of Artifact Staging Directory to verify files are copied
-  - script: |
-      echo "Listing contents of $(Build.ArtifactStagingDirectory)"
-      ls -alh $(Build.ArtifactStagingDirectory)
-    displayName: "List contents of Artifact Staging Directory"
-
-  # Ensure SafeDrive directory exists before zipping
-  - script: |
-      mkdir -p $(Build.ArtifactStagingDirectory)/SafeDrive
-      echo "SafeDrive directory created"
-    displayName: "Create SafeDrive directory"
-
   - task: ArchiveFiles@2
     inputs:
       rootFolderOrFile: "$(Build.ArtifactStagingDirectory)/SafeDrive"
@@ -54,6 +38,10 @@ steps:
       archiveType: "zip"
       archiveFile: "$(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip"
       replaceExistingArchive: true
+  # - task: PowerShell@2
+  #   inputs:
+  #     targetType: 'inline'
+  #     script: 'ssh $username@$hostname -p "$username"'
 
   - script: |
       sshpass -p $(password) scp -o StrictHostKeyChecking=no $(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip $(username)@$(hostname):~
