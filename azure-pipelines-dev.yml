@@ -24,7 +24,6 @@ steps:
     displayName: "Run a multi-line script"
   - script: |
       npm install
-      sentry-cli login --auth-token $(sentry_auth_token)
       npm run build
     displayName: "Build React project"
   - task: CopyFiles@2
