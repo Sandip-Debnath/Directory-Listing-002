@@ -120,6 +120,7 @@ export default function Listings() {
                       <h4 className="fs-5 fw-semibold mb-1">Price Filter</h4>
                       <p className="mb-0 small">Select min and max price range</p>
                     </div>
+                    
 
                     <div className="js-range-slider"></div>
 
