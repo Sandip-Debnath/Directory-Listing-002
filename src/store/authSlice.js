@@ -5,6 +5,7 @@ import { login as apiLogin, logout as apiLogout, me as apiMe } from "@/utils/api
 import { storage } from "@/utils/storage";
 import { setAuthToken } from "@/utils/api/handlers";
 
+
 const TOKEN_KEY = "auth_token";
 const USER_KEY = "auth_user";
 
@@ -24,10 +25,10 @@ export const login = createAsyncThunk("auth/login", async (payload, { rejectWith
 
 export const fetchMe = createAsyncThunk("auth/me", async (_, { rejectWithValue }) => {
   try {
-    const data = await apiMe(); // { user }
+    const data = await apiMe(); // This should call the `me` function to fetch user data
     return data;
   } catch (err) {
-    return rejectWithValue(err);
+    return rejectWithValue(err);  // Handle any errors properly
   }
 });
 

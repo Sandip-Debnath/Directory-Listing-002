@@ -155,14 +155,9 @@ export default function Header() {
               </ul>
             </li>
 
-            <li className="nav-item dropdown">
+            <li className="nav-item">
               <a
-                className="nav-link dropdown-toggle"
-                href="#"
-                role="button"
-                data-bs-toggle="dropdown"
-                data-bs-auto-close="outside"
-                aria-expanded="false"
+                className="nav-link" href="/listings"
               >
                 Listing
               </a>

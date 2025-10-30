@@ -29,6 +29,11 @@ const getAuthToken = () => {
   return _token;
 };
 
+export const me = async () => {
+  const response = await get("/me", { auth: true }); 
+  return response;  // Should return the user data
+};
+
 // ------- Core HTTP helper (fetch) -------
 const buildUrl = (path, params) => {
   const u = new URL(`${BASE_URL}${path.startsWith("/") ? path : `/${path}`}`);
@@ -329,6 +334,9 @@ export const deleteBookmark = (listing_id) =>
 
 export const getMyDashBoard = (params = {}) =>
   get("/my-dashboard", { params, auth: true });
+
+export const filterListings = (params = {}) =>
+  get("/listings/filter", { params, auth: false });
 
 // Optionally expose the base for debugging
 export const API_BASE = BASE_URL;

@@ -3038,7 +3038,7 @@ hr {
 
 @media(min-width: 1200px) {
     .search-bar [class*="col-"] {
-        border-right: 1px solid var(--bs-border-color)
+        /* border-right: 1px solid var(--bs-border-color) */
     }
 
     [dir=rtl] .search-bar [class*="col-"] {
