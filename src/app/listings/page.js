@@ -1,25 +1,18 @@
 // src\app\listings\page.js
 'use client';
 
-import { useState, useEffect, useMemo } from "react";
-import {
-  getCountries,
-  getStatesByCountry,
-  getCities,
-  getCategories,
-  getTags,
-  filterListings,
-} from "@/utils/api/handlers";
-import Link from 'next/link';
-import Image from 'next/image';
+import { Suspense, useState, useEffect, useMemo } from "react";
+import { useSearchParams } from 'next/navigation'; 
+import { getCountries, getStatesByCountry, getCities, getCategories, getTags, filterListings } from "@/utils/api/handlers";
 import { useRouter } from "next/navigation";
-import { useSearchParams } from 'next/navigation';
+import listingImage from '@/../public/assets/dashboard/assets/dist/img/05.jpg';
+import Image from 'next/image';
 import { getSavedLocation, detectLocation } from "@/utils/location";
 
-import listingImage from '@/../public/assets/dashboard/assets/dist/img/05.jpg';
+// isRemoteUrl check for validating if the URL is an external URL
 const isRemoteUrl = (u) => typeof u === "string" && /^https?:\/\//i.test(u);
 
-export default function Listings() {
+const Listings = () => {
   const searchParams = useSearchParams();
   const initialCategorySlug = searchParams.get('category');
   const initialSearch = searchParams.get('search') || "";
@@ -35,10 +28,8 @@ export default function Listings() {
     country_id: "",
     state_id: "",
     city_id: "",
-    // API expects slug for category/tag (per your example). We'll keep id in UI but
-    // translate to slug at request-time.
     category_id: "",
-    tag_ids: [],                 // multi-select in UI; we’ll send first tag’s slug as 'tag'
+    tag_ids: [],
     sort_by: "created_at",
     sort_dir: "desc",
     per_page: 10,
@@ -102,8 +93,8 @@ export default function Listings() {
           getTags(),
         ]);
         setCountries(cRes?.data || []);
-        setCategories(catRes || []);        // you already normalize to r?.data ?? []
-        setTags(tagRes || []);              // you already normalize to r?.data?.data ?? []
+        setCategories(catRes || []);        
+        setTags(tagRes || []);              
       } catch (e) {
         console.error(e);
       } finally {
@@ -117,10 +108,9 @@ export default function Listings() {
   }, [initialSearch]);
   
   useEffect(() => {
-    const searchText = searchParams.get('search') || "";  // Get search term from URL
-    setForm(prev => ({ ...prev, search: searchText }));  // Update form state with search value
-  }, [searchParams]);  // Depend on searchParams to trigger this effect
-  
+    const searchText = searchParams.get('search') || "";  
+    setForm(prev => ({ ...prev, search: searchText }));  
+  }, [searchParams]);  
 
   async function onDetect() {
     setLocMsg("Detecting...");
@@ -128,13 +118,11 @@ export default function Listings() {
       const { lat, long } = await detectLocation();
       setCoords({ lat, long });
       setLocMsg("Location detected");
-      // Update the location and refetch listings with the new location
       await fetchListings({ page: 1 });
     } catch (e) {
       setLocMsg(e.message || "Could not detect location");
     }
   }
-
 
   // ---- dependent dropdowns ----
   const onSelectCountry = async (countryId) => {
@@ -203,7 +191,7 @@ export default function Listings() {
   };
 
   // ---- API call ----
-  const fetchListings = async ({ page, formOverride,excludeMaxDistance } = {}) => {
+  const fetchListings = async ({ page, formOverride, excludeMaxDistance } = {}) => {
     setLoading(prev => ({ ...prev, list: true }));
     try {
       const f = formOverride ?? form;
@@ -221,9 +209,8 @@ export default function Listings() {
         sort_dir: f.sort_dir || undefined,
         per_page: f.per_page || 10,
         page: page ?? f.page ?? 1,
-        // Ensure these are always added before API call
-        current_lat: coords.lat || undefined,  // use saved location or undefined
-        current_long: coords.long || undefined, // same for long
+        current_lat: coords.lat || undefined,
+        current_long: coords.long || undefined,
         max_distance_km: excludeMaxDistance ? undefined : maxDistanceKm,
       };
   
@@ -274,25 +261,19 @@ export default function Listings() {
     const match = categories.find((c) => c.slug === initialCategorySlug);
     if (!match) return;
 
-    // avoid re-seeding if already selected
     if (String(form.category_id) === String(match.id)) return;
 
-    // atomically set form and fetch with the same snapshot
     setForm((prev) => {
       const next = { ...prev, category_id: String(match.id), page: 1 };
       fetchListings({ page: 1, formOverride: next });
       return next;
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialCategorySlug, categories]);
 
-
-  // Apply filters (button)
   const onApplyFilters = async () => {
     await fetchListings({ page: 1 });
   };
 
-  // Clear filters link
   const onClearFilters = async (e) => {
     e?.preventDefault?.();
     const base = {
@@ -312,7 +293,6 @@ export default function Listings() {
     setCities([]);
     await fetchListings({ page: 1, formOverride: base, excludeMaxDistance: true });
   };
-
 
   // pagination actions
   const goPrev = async (e) => {
@@ -336,7 +316,6 @@ export default function Listings() {
     const t = tags.find(t => String(t.id) === String(id));
     return t?.slug || t?.name || "";
   };
-
 
   // small helpers for card data
   const primaryImage = (listing) =>
@@ -362,15 +341,8 @@ export default function Listings() {
     return { reviewCount, avgRating };
   };
 
-  const reviewsText = (listing) =>
-    <span className="fw-medium text-primary">
-      <span className="fs-6 fw-semibold me-1">(4.5)</span>
-      {/* If you later have real counts: {listing.reviews_count} */}
-      2,391 reviews
-    </span>;
-
   return (
-    <>
+    <Suspense fallback={<div>Loading...</div>}>
       <div className="border-0 card header rounded-0 sticky-top">
         <div className="border-bottom border-top p-3 p-xl-0 search-bar">
           <div className="row g-3 g-xl-0">
@@ -381,8 +353,7 @@ export default function Listings() {
                 </h2>
               </div>
             </div>
-
-            <div className="col-md-8 col-lg-5 col-xl-5">
+                        <div className="col-md-8 col-lg-5 col-xl-5">
               <div className="search-select-input has-icon has-icon-y position-relative">
                 <input
                   className="form-control"
@@ -510,7 +481,7 @@ export default function Listings() {
         </div>
       </div>
 
-      <div className="py-3 py-xl-5 bg-gradient">
+            <div className="py-3 py-xl-5 bg-gradient">
         <div className="container">
           <div className="row">
             <aside className="col-xl-3 filters-col content pe-lg-4 pe-xl-5 shadow-end">
@@ -770,6 +741,8 @@ export default function Listings() {
           </div>
         </div>
       </div>
-    </>
+    </Suspense>
   );
-}
+};
+
+export default Listings;
