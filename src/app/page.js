@@ -2,9 +2,12 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
+import { getHomepageCategories } from '@/utils/api/handlers';
+import { detectLocation, getSavedLocation } from '@/utils/location';
 
 import bgImage from '@/../public/assets/images/header/lg-03.jpg';
 import backgroundImage from '@/../public/assets/images/header/lg-04.jpg';
@@ -28,10 +31,95 @@ import listing4 from '@/../public/assets/images/place/04.jpg';
 import listing5 from '@/../public/assets/images/place/05.jpg';
 
 
-
+// simple remote URL check to choose <img> (remote) vs <Image> (local)
+const isRemoteUrl = (u) => typeof u === 'string' && /^https?:\/\//i.test(u);
 
 
 export default function Home() {
+
+  const router = useRouter();
+
+  const [cats, setCats] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState(null);
+
+  const [loc, setLoc] = useState({ lat: null, long: null });
+  const [maxDistanceKm, setMaxDistanceKm] = useState(10);
+  const [locMsg, setLocMsg] = useState("");
+  const [form, setForm] = useState({
+    search: '',
+  });
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const data = await getHomepageCategories();
+        if (alive) setCats(Array.isArray(data) ? data : []);
+      } catch (e) {
+        console.error(e);
+        if (alive) setErr('Failed to load categories');
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => { alive = false; };
+  }, []);
+
+
+  useEffect(() => {
+    // load saved coordinates if any (no prompt)
+    const saved = getSavedLocation();
+    if (saved) setLoc({ lat: saved.lat, long: saved.long });
+  }, []);
+
+  async function onDetect() {
+    setLocMsg("Detecting...");
+    try {
+      const { lat, long } = await detectLocation();
+      setLoc({ lat, long });
+      setLocMsg("Location detected");
+    } catch (e) {
+      setLocMsg(e.message || "Could not detect location");
+    }
+  }
+
+  function onSearchSubmit(e) {
+    e?.preventDefault?.();
+    const params = new URLSearchParams();
+
+    // If location is provided, include it in the query params
+    if (loc.lat && loc.long) {
+      params.set("near", "1");
+      params.set("max_distance_km", String(maxDistanceKm));
+      params.set("current_lat", String(loc.lat));
+      params.set("current_long", String(loc.long));
+    }
+
+    // Add search term to query params
+    if (form.search) {
+      params.set("search", form.search);  // Include search term here
+    }
+
+    // Redirect to listings page with search query
+    window.location.href = `/listings?${params.toString()}`;
+  }
+
+
+  const goCategory = (slug) => {
+    if (!slug) return;
+    router.push(`/listings?category=${encodeURIComponent(slug)}`);
+  };
+
+  function onInputChange(e) {
+    const { name, value } = e.target;
+    setForm((prevForm) => ({
+      ...prevForm,
+      [name]: value, // Dynamically set the field
+    }));
+  }
+
+
   return (
 
     <>
@@ -49,7 +137,8 @@ export default function Home() {
             <div className="row justify-content-center">
               <div className="col-lg-10">
 
-                <div className="border-0 card d-flex flex-md-row position-relative search-wrapper">
+                <form className="border-0 card d-flex flex-md-row position-relative search-wrapper" onSubmit={onSearchSubmit}>
+
                   <div className="align-items-center d-flex search-field w-100">
                     <div className="svg-icon">
                       <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" className="bi bi-search" viewBox="0 0 16 16">
@@ -57,7 +146,14 @@ export default function Home() {
                       </svg>
                     </div>
 
-                    <input type="email" className="form-control search-input" placeholder="What are you looking for?" />
+                    <input
+                      type="text"
+                      className="form-control search-input"
+                      placeholder="What are you looking for?"
+                      value={form.search} // Bind the value to form.search
+                      onChange={onInputChange} // Call onInputChange on change
+                      name="search" // Ensure that the input name matches the state key
+                    />
 
                   </div>
                   <div className="vertical-divider"></div>
@@ -69,16 +165,34 @@ export default function Home() {
                       </svg>
                     </div>
 
-                    <select className="form-select search-select-field">
-                      <option value="">Location</option>
-                      <option value="1">Florence, Italy</option>
-                      <option value="2">Second choice</option>
-                      <option value="3">Third choice</option>
-                    </select>
+                    <div className="d-flex w-100 gap-2">
+                      <select
+                        className="form-select search-select-field"
+                        value={maxDistanceKm}
+                        onChange={(e) => setMaxDistanceKm(Number(e.target.value))}
+                        title="Search within distance (km)"
+                      >
+                        {[5, 10, 20, 50, 100, 200].map(km => (
+                          <option key={km} value={km}>{km} km</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="d-flex w-100 gap-2">
+                      <button
+                        type="button"
+                        className="btn btn-outline-primary"
+                        onClick={onDetect}
+                        title="Detect my current location"
+                      >
+                        {loc.lat ? "Update location" : "Detect location"}
+                      </button>
+                    </div>
 
                   </div>
                   <input type="submit" value="Search places" className="btn btn-primary rounded-5 mt-3 mt-md-0" />
-                </div>
+                </form>
+                {locMsg ? <div className="text-white-50 small mt-2 text-center">{locMsg}</div> : null}
 
               </div>
             </div>
@@ -90,236 +204,76 @@ export default function Home() {
         <div className="container py-4">
           <div className="row justify-content-center">
             <div className="col-sm-10 col-md-10 col-lg-8 col-xl-7">
-              <div className="section-header text-center mb-5" data-aos="fade-down">
+              <div className="section-header text-center mb-5">
                 <div className="d-inline-block font-caveat fs-1 fw-medium section-header__subtitle text-capitalize text-primary">Let’s Explore!</div>
                 <h2 className="display-5 fw-semibold mb-3 section-header__title text-capitalize">Featured Categories</h2>
-                <div className="sub-title fs-16">Discover exciting categories. <span className="text-primary fw-semibold">Find what you’re looking for.</span></div>
+                <div className="sub-title fs-16">
+                  Discover exciting categories. <span className="text-primary fw-semibold">Find what you’re looking for.</span>
+                </div>
               </div>
             </div>
           </div>
-          <div className="row g-3 g-ld-4">
-            <div className="col-lg-3 col-md-6 col-sm-6 d-flex">
-              <div className="align-items-center border-0 card card-hover d-flex flex-fill flex-row flex-wrap p-3 p-sm-3 rounded-4 shadow-sm w-100">
-                <div className="flex-shrink-0">
-                  <div className="align-items-center bg-light d-flex fs-4 justify-content-center rounded-3 text-primary category-icon-box">
-                    <i className="fa-solid fa-building-user"></i>
-                  </div>
-                </div>
-                <div className="flex-grow-1 ms-2 ms-md-3">
-                  <h3 className="fs-19 fw-semibold mb-1"><a href="">Appartment</a></h3>
-                  <p className="mb-0 small">99+ listings</p>
-                </div>
-                <a href="" className="align-items-center d-flex fw-semibold gap-2 link-hover">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="bi bi-arrow-up-right" viewBox="0 0 16 16">
-                    <path fillRule="evenodd" d="M14 2.5a.5.5 0 0 0-.5-.5h-6a.5.5 0 0 0 0 1h4.793L2.146 13.146a.5.5 0 0 0 .708.708L13 3.707V8.5a.5.5 0 0 0 1 0v-6z"></path>
-                  </svg>
-                </a>
-              </div>
-            </div>
-            <div className="col-lg-3 col-md-6 col-sm-6 d-flex">
-              <div className="align-items-center border-0 card card-hover d-flex flex-fill flex-row flex-wrap p-3 p-sm-3 rounded-4 shadow-sm w-100">
-                <div className="flex-shrink-0">
-                  <div className="align-items-center bg-light d-flex fs-4 justify-content-center rounded-3 text-primary category-icon-box">
-                    <i className="fa-solid fa-utensils"></i>
-                  </div>
-                </div>
-                <div className="flex-grow-1 ms-2 ms-md-3">
-                  <h3 className="fs-19 fw-semibold mb-1"><a href="">Restaurant</a></h3>
-                  <p className="mb-0 small">55+ listings</p>
-                </div>
-                <a href="" className="align-items-center d-flex fw-semibold gap-2 link-hover">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="bi bi-arrow-up-right" viewBox="0 0 16 16">
-                    <path fillRule="evenodd" d="M14 2.5a.5.5 0 0 0-.5-.5h-6a.5.5 0 0 0 0 1h4.793L2.146 13.146a.5.5 0 0 0 .708.708L13 3.707V8.5a.5.5 0 0 0 1 0v-6z"></path>
-                  </svg>
-                </a>
-              </div>
-            </div>
-            <div className="col-lg-3 col-md-6 col-sm-6 d-flex">
-              <div className="align-items-center border-0 card card-hover d-flex flex-fill flex-row flex-wrap p-3 p-sm-3 rounded-4 shadow-sm w-100">
-                <div className="flex-shrink-0">
-                  <div className="align-items-center bg-light d-flex fs-4 justify-content-center rounded-3 text-primary category-icon-box">
-                    <i className="fa-solid fa-headphones"></i>
-                  </div>
-                </div>
-                <div className="flex-grow-1 ms-2 ms-md-3">
-                  <h3 className="fs-19 fw-semibold mb-1"><a href="">Music</a></h3>
-                  <p className="mb-0 small">55+ listings</p>
-                </div>
-                <a href="" className="align-items-center d-flex fw-semibold gap-2 link-hover">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="bi bi-arrow-up-right" viewBox="0 0 16 16">
-                    <path fillRule="evenodd" d="M14 2.5a.5.5 0 0 0-.5-.5h-6a.5.5 0 0 0 0 1h4.793L2.146 13.146a.5.5 0 0 0 .708.708L13 3.707V8.5a.5.5 0 0 0 1 0v-6z"></path>
-                  </svg>
-                </a>
-              </div>
-            </div>
-            <div className="col-lg-3 col-md-6 col-sm-6 d-flex">
-              <div className="align-items-center border-0 card card-hover d-flex flex-fill flex-row flex-wrap p-3 p-sm-3 rounded-4 shadow-sm w-100">
-                <div className="flex-shrink-0">
-                  <div className="align-items-center bg-light d-flex fs-4 justify-content-center rounded-3 text-primary category-icon-box">
-                    <i className="fa-solid fa-bag-shopping"></i>
-                  </div>
-                </div>
-                <div className="flex-grow-1 ms-2 ms-md-3">
-                  <h3 className="fs-19 fw-semibold mb-1"><a href="">Shopping</a></h3>
-                  <p className="mb-0 small">80+ listings</p>
-                </div>
-                <a href="" className="align-items-center d-flex fw-semibold gap-2 link-hover">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="bi bi-arrow-up-right" viewBox="0 0 16 16">
-                    <path fillRule="evenodd" d="M14 2.5a.5.5 0 0 0-.5-.5h-6a.5.5 0 0 0 0 1h4.793L2.146 13.146a.5.5 0 0 0 .708.708L13 3.707V8.5a.5.5 0 0 0 1 0v-6z"></path>
-                  </svg>
-                </a>
-              </div>
-            </div>
-            <div className="col-lg-3 col-md-6 col-sm-6 d-flex">
-              <div className="align-items-center border-0 card card-hover d-flex flex-fill flex-row flex-wrap p-3 p-sm-3 rounded-4 shadow-sm w-100">
-                <div className="flex-shrink-0">
-                  <div className="align-items-center bg-light d-flex fs-4 justify-content-center rounded-3 text-primary category-icon-box">
-                    <i className="fa-solid fa-tv"></i>
-                  </div>
-                </div>
-                <div className="flex-grow-1 ms-2 ms-md-3">
-                  <h3 className="fs-19 fw-semibold mb-1"><a href="">TV Shows</a></h3>
-                  <p className="mb-0 small">96+ listings</p>
-                </div>
-                <a href="" className="align-items-center d-flex fw-semibold gap-2 link-hover">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="bi bi-arrow-up-right" viewBox="0 0 16 16">
-                    <path fillRule="evenodd" d="M14 2.5a.5.5 0 0 0-.5-.5h-6a.5.5 0 0 0 0 1h4.793L2.146 13.146a.5.5 0 0 0 .708.708L13 3.707V8.5a.5.5 0 0 0 1 0v-6z"></path>
-                  </svg>
-                </a>
-              </div>
-            </div>
-            <div className="col-lg-3 col-md-6 col-sm-6 d-flex">
-              <div className="align-items-center border-0 card card-hover d-flex flex-fill flex-row flex-wrap p-3 p-sm-3 rounded-4 shadow-sm w-100">
-                <div className="flex-shrink-0">
-                  <div className="align-items-center bg-light d-flex fs-4 justify-content-center rounded-3 text-primary category-icon-box">
-                    <i className="fa-solid fa-dumbbell"></i>
-                  </div>
-                </div>
-                <div className="flex-grow-1 ms-2 ms-md-3">
-                  <h3 className="fs-19 fw-semibold mb-1"><a href="">Gymnasiums</a></h3>
-                  <p className="mb-0 small">21+ listings</p>
-                </div>
-                <a href="" className="align-items-center d-flex fw-semibold gap-2 link-hover">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="bi bi-arrow-up-right" viewBox="0 0 16 16">
-                    <path fillRule="evenodd" d="M14 2.5a.5.5 0 0 0-.5-.5h-6a.5.5 0 0 0 0 1h4.793L2.146 13.146a.5.5 0 0 0 .708.708L13 3.707V8.5a.5.5 0 0 0 1 0v-6z"></path>
-                  </svg>
-                </a>
-              </div>
-            </div>
-            <div className="col-lg-3 col-md-6 col-sm-6 d-flex">
-              <div className="align-items-center border-0 card card-hover d-flex flex-fill flex-row flex-wrap p-3 p-sm-3 rounded-4 shadow-sm w-100">
-                <div className="flex-shrink-0">
-                  <div className="align-items-center bg-light d-flex fs-4 justify-content-center rounded-3 text-primary category-icon-box">
-                    <i className="fa-solid fa-calendar-days"></i>
-                  </div>
-                </div>
-                <div className="flex-grow-1 ms-2 ms-md-3">
-                  <h3 className="fs-19 fw-semibold mb-1"><a href="">Events</a></h3>
-                  <p className="mb-0 small">35+ listings</p>
-                </div>
-                <a href="" className="align-items-center d-flex fw-semibold gap-2 link-hover">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="bi bi-arrow-up-right" viewBox="0 0 16 16">
-                    <path fillRule="evenodd" d="M14 2.5a.5.5 0 0 0-.5-.5h-6a.5.5 0 0 0 0 1h4.793L2.146 13.146a.5.5 0 0 0 .708.708L13 3.707V8.5a.5.5 0 0 0 1 0v-6z"></path>
-                  </svg>
-                </a>
-              </div>
-            </div>
-            <div className="col-lg-3 col-md-6 col-sm-6 d-flex">
-              <div className="align-items-center border-0 card card-hover d-flex flex-fill flex-row flex-wrap p-3 p-sm-3 rounded-4 shadow-sm w-100">
-                <div className="flex-shrink-0">
-                  <div className="align-items-center bg-light d-flex fs-4 justify-content-center rounded-3 text-primary category-icon-box">
-                    <i className="fa-solid fa-bullhorn"></i>
-                  </div>
-                </div>
-                <div className="flex-grow-1 ms-2 ms-md-3">
-                  <h3 className="fs-19 fw-semibold mb-1"><a href="">Classifieds</a></h3>
-                  <p className="mb-0 small">51+ listings</p>
-                </div>
-                <a href="" className="align-items-center d-flex fw-semibold gap-2 link-hover">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="bi bi-arrow-up-right" viewBox="0 0 16 16">
-                    <path fillRule="evenodd" d="M14 2.5a.5.5 0 0 0-.5-.5h-6a.5.5 0 0 0 0 1h4.793L2.146 13.146a.5.5 0 0 0 .708.708L13 3.707V8.5a.5.5 0 0 0 1 0v-6z"></path>
-                  </svg>
-                </a>
-              </div>
-            </div>
-            <div className="col-lg-3 col-md-6 col-sm-6 d-flex">
-              <div className="align-items-center border-0 card card-hover d-flex flex-fill flex-row flex-wrap p-3 p-sm-3 rounded-4 shadow-sm w-100">
-                <div className="flex-shrink-0">
-                  <div className="align-items-center bg-light d-flex fs-4 justify-content-center rounded-3 text-primary category-icon-box">
-                    <i className="fa-solid fa-martini-glass-citrus"></i>
-                  </div>
-                </div>
-                <div className="flex-grow-1 ms-2 ms-md-3">
-                  <h3 className="fs-19 fw-semibold mb-1"><a href="">Nightlife</a></h3>
-                  <p className="mb-0 small">49+ listings</p>
-                </div>
-                <a href="" className="align-items-center d-flex fw-semibold gap-2 link-hover">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="bi bi-arrow-up-right" viewBox="0 0 16 16">
-                    <path fillRule="evenodd" d="M14 2.5a.5.5 0 0 0-.5-.5h-6a.5.5 0 0 0 0 1h4.793L2.146 13.146a.5.5 0 0 0 .708.708L13 3.707V8.5a.5.5 0 0 0 1 0v-6z"></path>
-                  </svg>
-                </a>
-              </div>
-            </div>
-            <div className="col-lg-3 col-md-6 col-sm-6 d-flex">
-              <div className="align-items-center border-0 card card-hover d-flex flex-fill flex-row flex-wrap p-3 p-sm-3 rounded-4 shadow-sm w-100">
-                <div className="flex-shrink-0">
-                  <div className="align-items-center bg-light d-flex fs-4 justify-content-center rounded-3 text-primary category-icon-box">
-                    <i className="fa-solid fa-building-user"></i>
-                  </div>
-                </div>
-                <div className="flex-grow-1 ms-2 ms-md-3">
-                  <h3 className="fs-19 fw-semibold mb-1"><a href="">Appartment</a></h3>
-                  <p className="mb-0 small">99+ listings</p>
-                </div>
-                <a href="" className="align-items-center d-flex fw-semibold gap-2 link-hover">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="bi bi-arrow-up-right" viewBox="0 0 16 16">
-                    <path fillRule="evenodd" d="M14 2.5a.5.5 0 0 0-.5-.5h-6a.5.5 0 0 0 0 1h4.793L2.146 13.146a.5.5 0 0 0 .708.708L13 3.707V8.5a.5.5 0 0 0 1 0v-6z"></path>
-                  </svg>
-                </a>
-              </div>
-            </div>
-            <div className="col-lg-3 col-md-6 col-sm-6 d-flex">
-              <div className="align-items-center border-0 card card-hover d-flex flex-fill flex-row flex-wrap p-3 p-sm-3 rounded-4 shadow-sm w-100">
-                <div className="flex-shrink-0">
-                  <div className="align-items-center bg-light d-flex fs-4 justify-content-center rounded-3 text-primary category-icon-box">
-                    <i className="fa-solid fa-utensils"></i>
-                  </div>
-                </div>
-                <div className="flex-grow-1 ms-2 ms-md-3">
-                  <h3 className="fs-19 fw-semibold mb-1"><a href="">Restaurant</a></h3>
-                  <p className="mb-0 small">55+ listings</p>
-                </div>
-                <a href="" className="align-items-center d-flex fw-semibold gap-2 link-hover">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="bi bi-arrow-up-right" viewBox="0 0 16 16">
-                    <path fillRule="evenodd" d="M14 2.5a.5.5 0 0 0-.5-.5h-6a.5.5 0 0 0 0 1h4.793L2.146 13.146a.5.5 0 0 0 .708.708L13 3.707V8.5a.5.5 0 0 0 1 0v-6z"></path>
-                  </svg>
-                </a>
-              </div>
-            </div>
-            <div className="col-lg-3 col-md-6 col-sm-6 d-flex">
-              <div className="align-items-center border-0 card card-hover d-flex flex-fill flex-row flex-wrap p-3 p-sm-3 rounded-4 shadow-sm w-100">
-                <div className="flex-shrink-0">
-                  <div className="align-items-center bg-light d-flex fs-4 justify-content-center rounded-3 text-primary category-icon-box">
-                    <i className="fa-solid fa-headphones"></i>
-                  </div>
-                </div>
-                <div className="flex-grow-1 ms-2 ms-md-3">
-                  <h3 className="fs-19 fw-semibold mb-1"><a href="">Music</a></h3>
-                  <p className="mb-0 small">55+ listings</p>
-                </div>
-                <a href="" className="align-items-center d-flex fw-semibold gap-2 link-hover">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="bi bi-arrow-up-right" viewBox="0 0 16 16">
-                    <path fillRule="evenodd" d="M14 2.5a.5.5 0 0 0-.5-.5h-6a.5.5 0 0 0 0 1h4.793L2.146 13.146a.5.5 0 0 0 .708.708L13 3.707V8.5a.5.5 0 0 0 1 0v-6z"></path>
-                  </svg>
-                </a>
-              </div>
-            </div>
 
-          </div>
+          {loading && (
+            <div className="text-center text-muted py-5">Loading categories…</div>
+          )}
+          {err && !loading && (
+            <div className="text-center text-danger py-5">{err}</div>
+          )}
+
+          {!loading && !err && (
+            <div className="row g-3">
+              {cats.map((c) => (
+                <div key={c.id} className="col-lg-3 col-md-6 col-sm-6 d-flex">
+                  <div
+                    className="align-items-center border-0 card card-hover d-flex flex-fill flex-row flex-wrap p-3 rounded-4 shadow-sm w-100"
+                    role="button"
+                    onClick={() => goCategory(c.slug)}
+                    onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && goCategory(c.slug)}
+                    tabIndex={0}
+                    style={{ cursor: 'pointer' }}
+                    title={`Browse ${c.name}`}
+                  >
+                    <div className="flex-shrink-0">
+                      <div className="align-items-center bg-light d-flex fs-4 justify-content-center rounded-3 text-primary category-icon-box" style={{ width: 56, height: 56, overflow: 'hidden' }}>
+                        {isRemoteUrl(c.image_url) ? (
+                          <img
+                            src={c.image_url}
+                            alt={c.name}
+                            className="w-50 h-50 object-fit-cover"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <span className="fw-bold">{c.name?.[0] || '•'}</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex-grow-1 ms-2 ms-md-3">
+                      <h3 className="fs-19 fw-semibold mb-1">
+                        <span className="link-hover text-decoration-none">{c.name}</span>
+                      </h3>
+                      <p className="mb-0 small">{(c.items_count ?? 0)} listings</p>
+                    </div>
+
+                    <span className="align-items-center d-flex fw-semibold gap-2 link-hover ms-auto">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="bi bi-arrow-up-right" viewBox="0 0 16 16">
+                        <path fillRule="evenodd" d="M14 2.5a.5.5 0 0 0-.5-.5h-6a.5.5 0 0 0 0 1h4.793L2.146 13.146a.5.5 0 0 0 .708.708L13 3.707V8.5a.5.5 0 0 0 1 0v-6z"></path>
+                      </svg>
+                    </span>
+                  </div>
+                </div>
+              ))}
+
+              {cats.length === 0 && (
+                <div className="text-center text-muted py-5">No categories to show.</div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="py-5 position-relative overflow-hidden">
+      {/* <div className="py-5 position-relative overflow-hidden">
         <div className="container py-4">
           <div className="row justify-content-center">
             <div className="col-sm-10 col-md-10 col-lg-8 col-xl-7">
@@ -471,9 +425,9 @@ export default function Home() {
 
           </div>
         </div>
-      </div>
+      </div> */}
 
-      <div className="py-5 bg-primary position-relative overflow-hidden text-white bg-primary bg-size-contain home-about js-bg-image" data-image-src="assets/images/lines.svg">
+      {/* <div className="py-5 bg-primary position-relative overflow-hidden text-white bg-primary bg-size-contain home-about js-bg-image" data-image-src="assets/images/lines.svg">
         <div className="container py-4">
           <div className="row justify-content-center">
             <div className="row justify-content-center">
@@ -631,9 +585,9 @@ export default function Home() {
             </div>
           </div>
         </div>
-      </div>
+      </div> */}
 
-      <div className="py-5 position-relative overflow-hidden bg-light rounded-4 mx-3 mt-3">
+      {/* <div className="py-5 position-relative overflow-hidden bg-light rounded-4 mx-3 mt-3">
         <div className="container py-4">
           <div className="row justify-content-center">
             <div className="col-sm-10 col-md-10 col-lg-8 col-xl-7">
@@ -905,7 +859,7 @@ export default function Home() {
             </div>
           </div>
         </div>
-      </div>
+      </div> */}
 
 
     </>

@@ -13,11 +13,20 @@ import {
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from "next/navigation";
+import { useSearchParams } from 'next/navigation';
+import { getSavedLocation, detectLocation } from "@/utils/location";
 
 import listingImage from '@/../public/assets/dashboard/assets/dist/img/05.jpg';
 const isRemoteUrl = (u) => typeof u === "string" && /^https?:\/\//i.test(u);
 
 export default function Listings() {
+  const searchParams = useSearchParams();
+  const initialCategorySlug = searchParams.get('category');
+  const initialSearch = searchParams.get('search') || "";
+  const initialMaxKm = Number(searchParams.get('max_distance_km')) || 10;
+  const [maxDistanceKm, setMaxDistanceKm] = useState(initialMaxKm);
+  const [coords, setCoords] = useState({ lat: null, long: null });
+  const [locMsg, setLocMsg] = useState("");
 
   const router = useRouter();
 
@@ -69,6 +78,19 @@ export default function Listings() {
     return t?.slug || t?.name || ""; // fallback if slug missing
   }, [form.tag_ids, tags]);
 
+  // load saved coords if any
+  useEffect(() => {
+    const saved = getSavedLocation();
+    if (saved) setCoords({ lat: saved.lat, long: saved.long });
+  
+    // Get location from query params if available
+    const currentLat = searchParams.get('current_lat');
+    const currentLong = searchParams.get('current_long');
+    if (currentLat && currentLong) {
+      setCoords({ lat: Number(currentLat), long: Number(currentLong) });
+    }
+  }, [searchParams]); 
+
   // ---- initial data ----
   useEffect(() => {
     (async () => {
@@ -89,6 +111,30 @@ export default function Listings() {
       }
     })();
   }, []);
+
+  useEffect(() => {
+    setForm(prev => ({ ...prev, search: initialSearch }));
+  }, [initialSearch]);
+  
+  useEffect(() => {
+    const searchText = searchParams.get('search') || "";  // Get search term from URL
+    setForm(prev => ({ ...prev, search: searchText }));  // Update form state with search value
+  }, [searchParams]);  // Depend on searchParams to trigger this effect
+  
+
+  async function onDetect() {
+    setLocMsg("Detecting...");
+    try {
+      const { lat, long } = await detectLocation();
+      setCoords({ lat, long });
+      setLocMsg("Location detected");
+      // Update the location and refetch listings with the new location
+      await fetchListings({ page: 1 });
+    } catch (e) {
+      setLocMsg(e.message || "Could not detect location");
+    }
+  }
+
 
   // ---- dependent dropdowns ----
   const onSelectCountry = async (countryId) => {
@@ -157,14 +203,13 @@ export default function Listings() {
   };
 
   // ---- API call ----
-  const fetchListings = async ({ page, formOverride } = {}) => {
+  const fetchListings = async ({ page, formOverride,excludeMaxDistance } = {}) => {
     setLoading(prev => ({ ...prev, list: true }));
     try {
       const f = formOverride ?? form;
-
       const catSlug = f.category_id ? getCategorySlugById(f.category_id) : "";
       const tagSlug = f.tag_ids?.length ? getTagSlugById(f.tag_ids[0]) : "";
-
+  
       const params = {
         ...(catSlug ? { category: catSlug } : {}),
         ...(tagSlug ? { tag: tagSlug } : {}),
@@ -176,8 +221,12 @@ export default function Listings() {
         sort_dir: f.sort_dir || undefined,
         per_page: f.per_page || 10,
         page: page ?? f.page ?? 1,
+        // Ensure these are always added before API call
+        current_lat: coords.lat || undefined,  // use saved location or undefined
+        current_long: coords.long || undefined, // same for long
+        max_distance_km: excludeMaxDistance ? undefined : maxDistanceKm,
       };
-
+  
       const r = await filterListings(params);
       const pg = r?.data ?? r;
       setResults({
@@ -203,13 +252,40 @@ export default function Listings() {
       setLoading(prev => ({ ...prev, list: false }));
     }
   };
-
+  
 
   // initial load
   useEffect(() => {
     fetchListings();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // if user changes distance, refetch
+  useEffect(() => {
+    if (coords.lat && coords.long) {
+      fetchListings({ page: 1 });
+    }
+  }, [coords, maxDistanceKm]);
+
+  // Seed from ?category=<slug> once categories are available
+  useEffect(() => {
+    if (!initialCategorySlug || !categories?.length) return;
+
+    const match = categories.find((c) => c.slug === initialCategorySlug);
+    if (!match) return;
+
+    // avoid re-seeding if already selected
+    if (String(form.category_id) === String(match.id)) return;
+
+    // atomically set form and fetch with the same snapshot
+    setForm((prev) => {
+      const next = { ...prev, category_id: String(match.id), page: 1 };
+      fetchListings({ page: 1, formOverride: next });
+      return next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialCategorySlug, categories]);
+
 
   // Apply filters (button)
   const onApplyFilters = async () => {
@@ -234,7 +310,7 @@ export default function Listings() {
     setForm(base);
     setStates([]);
     setCities([]);
-    await fetchListings({ page: 1, formOverride: base }); // ✅ uses cleared filters immediately
+    await fetchListings({ page: 1, formOverride: base, excludeMaxDistance: true });
   };
 
 
@@ -328,6 +404,27 @@ export default function Listings() {
                   <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85zm-5.242.656a5.5 5.5 0 1 1 0-11 5.5 5.5 0 0 1 0 11z" />
                 </svg>
 
+              </div>
+              <div className="d-flex align-items-center gap-2 mt-2" style={{marginLeft:"20px"}}>
+                <button
+                  type="button"
+                  className="btn btn-outline-primary btn-sm"
+                  onClick={onDetect}
+                >
+                  {coords.lat ? "Update location" : "Use my location"}
+                </button>
+                <select
+                  className="form-select form-select-sm"
+                  style={{ maxWidth: 160 }}
+                  value={maxDistanceKm}
+                  onChange={(e) => setMaxDistanceKm(Number(e.target.value))}
+                  title="Search within distance (km)"
+                >
+                  {[5, 10, 20, 50, 100, 200].map(km => (
+                    <option key={km} value={km}>{km} km</option>
+                  ))}
+                </select>
+                {locMsg ? <span className="small text-muted">{locMsg}</span> : null}
               </div>
             </div>
 
@@ -625,7 +722,7 @@ export default function Listings() {
 
                           <div className="d-flex flex-wrap gap-3 mt-auto z-1">
                             {item.mobile ? (
-                              <a href={`tel:${item.mobile}`}  onClick={(e) => e.stopPropagation()} className="d-flex gap-2 align-items-center fs-13 fw-semibold">
+                              <a href={`tel:${item.mobile}`} onClick={(e) => e.stopPropagation()} className="d-flex gap-2 align-items-center fs-13 fw-semibold">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="#9b9b9b" className="bi bi-telephone" viewBox="0 0 16 16">
                                   <path d="M3.654 1.328a.678.678 0 0 0-1.015-.063L1.605 2.3c-.483.484-.661 1.169-.45 1.77a17.568 17.568 0 0 0 4.168 6.608 17.569 17.569 0 0 0 6.608 4.168c.601.211 1.286.033 1.77-.45l1.034-1.034a.678.678 0 0 0-.063-1.015l-2.307-1.794a.678.678 0 0 0-.58-.122l-2.19.547a1.745 1.745 0 0 1-1.657-.459L5.482 8.062a1.745 1.745 0 0 1-.46-1.657l.548-2.19a.678.678 0 0 0-.122-.58L3.654 1.328z" />
                                 </svg>

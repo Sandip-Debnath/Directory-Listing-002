@@ -4961,3 +4961,7 @@ hr {
 .form-control.galleryimage{
     height: 35px !important;
 }
+
+.gap-list li{
+padding-bottom: 10px;
+}
