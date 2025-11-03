@@ -30,7 +30,7 @@ const getAuthToken = () => {
 };
 
 export const me = async () => {
-  const response = await get("/me", { auth: true }); 
+  const response = await get("/me", { auth: true });
   return response;  // Should return the user data
 };
 
@@ -322,8 +322,8 @@ export const storeBookmark = (listing_id) =>
 // Bookmarks
 
 export const getMyBookmarks = (params = {}) =>
-  get("/my-bookmarks", { params, auth: true }); 
-  
+  get("/my-bookmarks", { params, auth: true });
+
 export const getMyEnquiries = (params = {}) =>
   get("/my-enquiries", { params, auth: true });
 
@@ -337,6 +337,12 @@ export const getMyDashBoard = (params = {}) =>
 
 export const filterListings = (params = {}) =>
   get("/listings/filter", { params, auth: false });
+
+export const getHomepageCategories = async () => {
+  // public endpoint (no auth) — change to { auth: true } if your backend needs it
+  const r = await get("/hompage-categories", { auth: false });
+  return r?.data ?? [];
+};
 
 // Optionally expose the base for debugging
 export const API_BASE = BASE_URL;
