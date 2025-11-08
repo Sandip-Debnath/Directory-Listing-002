@@ -344,5 +344,8 @@ export const getHomepageCategories = async () => {
   return r?.data ?? [];
 };
 
+export const forgotPassword = (payload) =>
+  post("/forgot-password", payload, { auth: false });
+
 // Optionally expose the base for debugging
 export const API_BASE = BASE_URL;

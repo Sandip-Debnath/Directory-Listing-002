@@ -53,19 +53,19 @@ export default function Header() {
 
         <div className="d-flex order-lg-2">
           {/* Use <a> for static HTML files in /public and to attach data attributes */}
-          <a
+          {/* <a
             href="/signin"
             className="d-flex align-items-center justify-content-center p-0 btn-user position-relative"
             data-bs-toggle="tooltip"
             data-bs-placement="bottom"
-            data-bs-custom-class="custom-tooltip"  /* <-- correct attribute */
+            data-bs-custom-class="custom-tooltip" 
             data-bs-title="Favourite"
           >
             <i className="fa-solid fa-heart"></i>
             <span className="align-items-center bg-primary d-flex end-0 fs-11 justify-content-center nav-count position-absolute rounded-circle text-white">
               0
             </span>
-          </a>
+          </a> */}
 
           {/* Internal Next route -> Link is fine */}
           <Link
@@ -79,18 +79,18 @@ export default function Header() {
             <i className="fa-solid fa-user-plus"></i>
           </Link>
 
-          <button
+          {/* <button
             type="button"
             id="themeToggleBtn"
             onClick={toggleTheme}
             className="align-items-center bg-transparent border-0 btn-user d-flex justify-content-center p-0"
           >
             <i className={theme === 'dark' ? 'fa-solid fa-sun' : 'fa-solid fa-moon'} />
-          </button>
+          </button> */}
 
           {/* Static HTML in /public */}
           <a
-            href="/add-listing.html"
+            href="/dashboard/add-listing"
             className="btn btn-primary d-none d-sm-flex fw-medium gap-2 hstack rounded-5"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" className="bi bi-plus-circle" viewBox="0 0 16 16">
@@ -120,8 +120,8 @@ export default function Header() {
 
         <div className="collapse navbar-collapse" id="navbarSupportedContent">
           <ul className="navbar-nav m-auto mb-2 mb-lg-0">
-            <li className="nav-item dropdown">
-              {/* Use <a> for dropdown toggles */}
+            {/* <li className="nav-item dropdown">
+              
               <a
                 className="nav-link dropdown-toggle active"
                 href="#"
@@ -136,32 +136,31 @@ export default function Header() {
               <ul className="dropdown-menu">
                 <li><Link className="dropdown-item" href="/">Home (Main)</Link></li>
               </ul>
-            </li>
-
-            <li className="nav-item dropdown">
-              <a
-                className="nav-link dropdown-toggle material-ripple"
-                href="#"
-                role="button"
-                data-bs-toggle="dropdown"
-                aria-expanded="false"
-              >
-                <i className="typcn typcn-weather-stormy top-menu-icon"></i>
-                Dashboard
-              </a>
-              <ul className="dropdown-menu">
-                {/* static dashboard HTML in /public */}
-                <li><a className="dropdown-item" href="/dashboard">Dashboard</a></li>
-              </ul>
-            </li>
+            </li> */}
 
             <li className="nav-item">
+              <a
+                className="nav-link" href="/"
+              >
+                Home
+              </a>
+            </li>          
+
+            <li className="nav-item">
+              <a
+                className="nav-link" href="/dashboard"
+              >
+                Dashboard
+              </a>
+            </li>
+
+            {/* <li className="nav-item">
               <a
                 className="nav-link" href="/listings"
               >
                 Listing
               </a>
-            </li>
+            </li> */}
 
             <li className="nav-item">
               <a className="nav-link" href="/listings">Explore</a>
@@ -169,7 +168,7 @@ export default function Header() {
           </ul>
 
           <div className="d-sm-none">
-            <a href="/signin.html" className="btn btn-primary d-flex gap-2 hstack justify-content-center rounded-3">
+            <a href="/dashboard/add-listing" className="btn btn-primary d-flex gap-2 hstack justify-content-center rounded-3">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="bi bi-plus-circle" viewBox="0 0 16 16">
                 <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z" />
                 <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z" />
