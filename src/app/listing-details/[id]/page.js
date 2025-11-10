@@ -257,9 +257,9 @@ export default function ListingDetails() {
                                 </button>
                             </div>
 
-                            <div className="small mt-1">
+                            {/* <div className="small mt-1">
                                 {bookmarkCount} {bookmarkCount === 1 ? "Person" : "People"} Bookmarked
-                            </div>
+                            </div> */}
                         </div>
                     </div>
                 </div>

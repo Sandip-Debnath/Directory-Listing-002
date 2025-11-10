@@ -30,7 +30,7 @@ const getAuthToken = () => {
 };
 
 export const me = async () => {
-  const response = await get("/me", { auth: true });
+  const response = await get("/user", { auth: true });
   return response;  // Should return the user data
 };
 
@@ -124,7 +124,7 @@ export const login = async (payload) => {
 };
 
 export const logout = (token) =>
-  post("/logout", { token }, { auth: false });
+  post("/logout", { token }, { auth: true });
 
 export const updateUser = (payload) => {
   const { token, ...clean } = payload || {};
@@ -132,7 +132,7 @@ export const updateUser = (payload) => {
 };
 
 export const changePassword = (payload) =>
-  post("/change-password", payload, { auth: true })
+  post("/reset-password", payload, { auth: true })
 
 
 export const getCountries = (params = {}) =>
@@ -346,6 +346,15 @@ export const getHomepageCategories = async () => {
 
 export const forgotPassword = (payload) =>
   post("/forgot-password", payload, { auth: false });
+
+export const verifyOtp = (payload) =>
+  post("/verify-otp", payload, { auth: false });
+
+export const resetPasswordApi = (payload) =>
+  post("/change-password", payload, { auth: false });
+
+export const getMyListingReviews = (page = 1, per_page = 10) =>
+  get("/mylisting-reviews", { params: { page, per_page }, auth: true });
 
 // Optionally expose the base for debugging
 export const API_BASE = BASE_URL;

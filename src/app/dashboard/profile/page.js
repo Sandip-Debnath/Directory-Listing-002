@@ -27,11 +27,8 @@ export default function Prifile() {
         city: user?.city || "",
         state: user?.state || "",
         country: user?.country || "",
-        description: "",
-        facebook: "",
-        twitter: "",
-        instagram: "",
-        linkedin: "",
+        description: user?.description || "",
+       
     });
     const [saving, setSaving] = useState(false);
     const [errors, setErrors] = useState({});
@@ -97,10 +94,7 @@ export default function Prifile() {
                 state: form.state || undefined,
                 country: form.country || undefined,
                 description: form.description || undefined,
-                facebook: form.facebook,
-                twitter: form.twitter,
-                instagram: form.instagram,
-                linkedin: form.linkedin,
+             
             });
             // (optional) refresh Redux user from backend
             try { await dispatch(fetchMe()).unwrap(); } catch { }
@@ -150,7 +144,7 @@ export default function Prifile() {
                                 <path d="M14.763.075A.5.5 0 0 1 15 .5v15a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5V14h-1v1.5a.5.5 0 0 1-.5.5h-9a.5.5 0 0 1-.5-.5V10a.5.5 0 0 1 .342-.474L6 7.64V4.5a.5.5 0 0 1 .276-.447l8-4a.5.5 0 0 1 .487.022ZM6 8.694 1 10.36V15h5zM7 15h2v-1.5a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 .5.5V15h2V1.309l-7 3.5z" />
                                 <path d="M2 11h1v1H2zm2 0h1v1H4zm-2 2h1v1H2zm2 0h1v1H4zm4-4h1v1H8zm2 0h1v1h-1zm-2 2h1v1H8zm2 0h1v1h-1zm2-2h1v1h-1zm0 2h1v1h-1zM8 7h1v1H8zm2 0h1v1h-1zm2 0h1v1h-1zM8 5h1v1H8zm2 0h1v1h-1zm2 0h1v1h-1zm0-2h1v1h-1z" />
                             </svg>
-                            <span>Innovination.</span>
+                            <span>{user?.company_name || "—"}</span>
                         </li>
                         <li className="list-inline-item">
                             {/* <i className="fa-solid fa-user fs-14 me-1"></i> */}
@@ -158,14 +152,14 @@ export default function Prifile() {
                                 <path d="M12.166 8.94c-.524 1.062-1.234 2.12-1.96 3.07A31.493 31.493 0 0 1 8 14.58a31.481 31.481 0 0 1-2.206-2.57c-.726-.95-1.436-2.008-1.96-3.07C3.304 7.867 3 6.862 3 6a5 5 0 0 1 10 0c0 .862-.305 1.867-.834 2.94M8 16s6-5.686 6-10A6 6 0 0 0 2 6c0 4.314 6 10 6 10" />
                                 <path d="M8 8a2 2 0 1 1 0-4 2 2 0 0 1 0 4m0 1a3 3 0 1 0 0-6 3 3 0 0 0 0 6" />
                             </svg>
-                            <a href="#"> West Bengal, India</a>
+                            <a href="#"> {user?.address || "—"}</a>
                         </li>
                         <li className="list-inline-item">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="bi bi-calendar2-plus me-1" viewBox="0 0 16 16">
                                 <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5M2 2a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1z" />
                                 <path d="M2.5 4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5H3a.5.5 0 0 1-.5-.5zM8 8a.5.5 0 0 1 .5.5V10H10a.5.5 0 0 1 0 1H8.5v1.5a.5.5 0 0 1-1 0V11H6a.5.5 0 0 1 0-1h1.5V8.5A.5.5 0 0 1 8 8" />
                             </svg>
-                            <span>Joined Oct 2025</span>
+                            <span>{user?.mobile || "—"}</span>
                         </li>
                     </ul>
                 </div>
@@ -300,46 +294,9 @@ export default function Prifile() {
                             </div>
 
                         </div>
-                        <div className="col-sm-12">
-                            <hr />
-                        </div>
+                        
 
-                        <div className="col-sm-6 col-md-12 col-lg-6">
-
-                            <div className="">
-                                <label className="fw-medium mb-2">Facebook Page<span className="fs-13 ms-1 text-muted">(optional)</span></label>
-                                <input type="text" name="facebook" className="form-control"
-                                    value={form.facebook} onChange={onChange} placeholder="https://facebook.com/" />
-                            </div>
-
-                        </div>
-                        <div className="col-sm-6 col-md-12 col-lg-6">
-
-                            <div className="">
-                                <label className="fw-medium mb-2">Twitter profile<span className="fs-13 ms-1 text-muted">(optional)</span></label>
-                                <input type="text" name="twitter" className="form-control"
-                                    value={form.twitter} onChange={onChange} placeholder="https://twitter.com/" />
-                            </div>
-
-                        </div>
-                        <div className="col-sm-6 col-md-12 col-lg-6">
-
-                            <div className="">
-                                <label className="fw-medium mb-2">Instagram profile<span className="fs-13 ms-1 text-muted">(optional)</span></label>
-                                <input type="text" name="instagram" className="form-control"
-                                    value={form.instagram} onChange={onChange} placeholder="https://instagram.com/" />
-                            </div>
-
-                        </div>
-                        <div className="col-sm-6 col-md-12 col-lg-6">
-
-                            <div className="">
-                                <label className="fw-medium mb-2">Linkedin page<span className="fs-13 ms-1 text-muted">(optional)</span></label>
-                                <input type="text" name="linkedin" className="form-control"
-                                    value={form.linkedin} onChange={onChange} placeholder="https://linkedin.com/" />
-                            </div>
-
-                        </div>
+                       
                         <div className="col-sm-6 col-md-12 col-lg-6">
 
                             {serverErr ? <div className="alert alert-danger">{serverErr}</div> : null}
